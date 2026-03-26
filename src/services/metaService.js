@@ -64,7 +64,9 @@ async function fetchSpendHistory(adAccountId, token) {
       access_token: token,
     })
 
-    const res = await fetch(`/api/meta/${adAccountId}/insights?${params.toString()}`)
+    const proxyParams = new URLSearchParams({ path: `${adAccountId}/insights` })
+    params.forEach((v, k) => proxyParams.append(k, v))
+    const res = await fetch(`/api/metaProxy?${proxyParams.toString()}`)
     if (!res.ok) throw new Error(`Meta API error: ${res.status}`)
     const data = await res.json()
     const spend = parseFloat(data?.data?.[0]?.spend || 0)
@@ -101,8 +103,10 @@ export async function getMetaData(netRevenue = 0) {
       access_token: token,
     })
 
+    const proxyParams = new URLSearchParams({ path: `${adAccountId}/insights` })
+    params.forEach((v, k) => proxyParams.append(k, v))
     const [insightsRes, sparkline] = await Promise.all([
-      fetch(`/api/meta/${adAccountId}/insights?${params.toString()}`),
+      fetch(`/api/metaProxy?${proxyParams.toString()}`),
       fetchSpendHistory(adAccountId, token),
     ])
 
