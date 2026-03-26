@@ -1038,7 +1038,7 @@ function ClaudeQA({ financialData }) {
   const [loading, setLd]  = useState(false)
 
   const suggestions = [
-    'What's my most profitable product?',
+    "What's my most profitable product?",
     'Am I profitable after all costs?',
     'Where am I losing the most money?',
     'What should I focus on to grow margin?',
