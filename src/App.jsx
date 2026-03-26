@@ -5,7 +5,7 @@ import { askClaude }      from './services/claudeService.js'
 import { MONTHLY_FIXED, COGS }  from './cogsConfig.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const CACHE_KEY    = 'tallow_dash_v5'
+const CACHE_KEY    = 'tallow_dash_v6'
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000
 
 const TIME_PRESETS = [
