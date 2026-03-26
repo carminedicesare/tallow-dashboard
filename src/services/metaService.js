@@ -1,7 +1,7 @@
 /**
  * metaService.js
- * Fetches ad performance data from the Meta Marketing API.
- * Falls back to mock data if the API is not configured.
+ * Fetches ad performance data via /api/metaProxy (server-side token injection).
+ * Falls back to mock data if the proxy is unavailable.
  */
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ const MOCK_META = {
     purchaseValue: 489.88,
     isMock: true,
   },
-  sparkline: [180, 220, 195, 310, 280, 330, 312],  // 7-week spend history
+  sparkline: [180, 220, 195, 310, 280, 330, 312],
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,9 +43,9 @@ function calculateMetrics(rawInsights, netRevenue) {
   return { spend, impressions, clicks, purchases, purchaseValue, roas, cpc, cpm, ctr }
 }
 
-// ─── Sparkline: fetch 7-week history ─────────────────────────────────────────
+// ─── Sparkline: 7-week spend history ─────────────────────────────────────────
 
-async function fetchSpendHistory(adAccountId, token) {
+async function fetchSpendHistory() {
   const weeks = []
   const now = new Date()
 
@@ -56,21 +56,18 @@ async function fetchSpendHistory(adAccountId, token) {
     until.setDate(until.getDate() - i * 7)
 
     const params = new URLSearchParams({
+      path: 'act_422096433958662/insights',
       fields: 'spend',
       time_range: JSON.stringify({
         since: since.toISOString().split('T')[0],
         until: until.toISOString().split('T')[0],
       }),
-      access_token: token,
     })
 
-    const proxyParams = new URLSearchParams({ path: `${adAccountId}/insights` })
-    params.forEach((v, k) => proxyParams.append(k, v))
-    const res = await fetch(`/api/metaProxy?${proxyParams.toString()}`)
-    if (!res.ok) throw new Error(`Meta API error: ${res.status}`)
+    const res = await fetch(`/api/metaProxy?${params.toString()}`)
+    if (!res.ok) throw new Error(`Meta sparkline error: ${res.status}`)
     const data = await res.json()
-    const spend = parseFloat(data?.data?.[0]?.spend || 0)
-    weeks.push(spend)
+    weeks.push(parseFloat(data?.data?.[0]?.spend || 0))
   }
 
   return weeks
@@ -79,48 +76,8 @@ async function fetchSpendHistory(adAccountId, token) {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function getMetaData(netRevenue = 0) {
-  const token       = import.meta.env.VITE_META_ACCESS_TOKEN
-  const adAccountId = import.meta.env.VITE_META_AD_ACCOUNT_ID
-
-  if (!token || !adAccountId) {
-    console.warn('Meta Ads not configured, using mock data')
-    const roas = MOCK_META.current.spend > 0 ? netRevenue / MOCK_META.current.spend : 0
-    return {
-      ...MOCK_META.current,
-      roas: roas || 1.57,
-      cpc:  MOCK_META.current.spend / MOCK_META.current.clicks,
-      cpm:  (MOCK_META.current.spend / MOCK_META.current.impressions) * 1000,
-      ctr:  (MOCK_META.current.clicks / MOCK_META.current.impressions) * 100,
-      sparkline: MOCK_META.sparkline,
-      isMock: true,
-    }
-  }
-
-  try {
-    const params = new URLSearchParams({
-      fields: 'spend,impressions,clicks,actions',
-      date_preset: 'last_7d',
-      access_token: token,
-    })
-
-    const proxyParams = new URLSearchParams({ path: `${adAccountId}/insights` })
-    params.forEach((v, k) => proxyParams.append(k, v))
-    const [insightsRes, sparkline] = await Promise.all([
-      fetch(`/api/metaProxy?${proxyParams.toString()}`),
-      fetchSpendHistory(adAccountId, token),
-    ])
-
-    if (!insightsRes.ok) throw new Error(`Meta insights error: ${insightsRes.status}`)
-    const insightsData = await insightsRes.json()
-    const raw = insightsData?.data?.[0] || {}
-
-    return {
-      ...calculateMetrics(raw, netRevenue),
-      sparkline,
-      isMock: false,
-    }
-  } catch (err) {
-    console.warn('Meta API unavailable, using mock data:', err.message)
+  const mockFallback = (err) => {
+    console.warn('Meta API unavailable, using mock data:', err?.message || err)
     const roas = MOCK_META.current.spend > 0 ? netRevenue / MOCK_META.current.spend : 1.57
     return {
       ...MOCK_META.current,
@@ -131,5 +88,36 @@ export async function getMetaData(netRevenue = 0) {
       sparkline: MOCK_META.sparkline,
       isMock: true,
     }
+  }
+
+  try {
+    const params = new URLSearchParams({
+      path: 'act_422096433958662/insights',
+      fields: 'spend,impressions,clicks,actions',
+      date_preset: 'last_7d',
+    })
+
+    const [insightsRes, sparkline] = await Promise.all([
+      fetch(`/api/metaProxy?${params.toString()}`),
+      fetchSpendHistory(),
+    ])
+
+    if (!insightsRes.ok) {
+      const errData = await insightsRes.json().catch(() => ({}))
+      console.error('Meta insights error:', errData)
+      return mockFallback(`Meta insights ${insightsRes.status}`)
+    }
+
+    const insightsData = await insightsRes.json()
+    console.log('Meta raw response:', JSON.stringify(insightsData))
+    const raw = insightsData?.data?.[0] || {}
+
+    return {
+      ...calculateMetrics(raw, netRevenue),
+      sparkline,
+      isMock: false,
+    }
+  } catch (err) {
+    return mockFallback(err)
   }
 }
