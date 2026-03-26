@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getShopifyData } from './services/shopifyService.js'
 import { getMetaData }    from './services/metaService.js'
 import { askClaude }      from './services/claudeService.js'
+import { MONTHLY_FIXED }  from './cogsConfig.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CACHE_KEY    = 'tallow_dashboard_cache'
@@ -388,9 +389,13 @@ export default function App() {
   const orderChange    = pctChange(curr?.orderCount, prev?.orderCount)
   const netProfitChange = pctChange(curr?.netProfit, prev?.netProfit)
 
-  // Cash flow = net revenue - all costs (COGS + order fees) - ad spend
+  // Weekly fixed costs (monthly ÷ 4.33 weeks)
+  const totalMonthlyFixed = Object.values(MONTHLY_FIXED).reduce((s, v) => s + v, 0)
+  const weeklyFixed = totalMonthlyFixed / 4.33
+
+  // Cash flow = net revenue - all costs (COGS + order fees + fixed overhead) - ad spend
   const cashFlow = curr
-    ? curr.netRevenue - curr.totalAllCosts - (metaData?.spend || 0)
+    ? curr.netRevenue - curr.totalAllCosts - (metaData?.spend || 0) - weeklyFixed
     : null
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -489,16 +494,20 @@ export default function App() {
                 </div>
                 <div className="cash-flow-sub" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {[
-                    { label: 'Revenue',    val: curr.netRevenue,      color: 'var(--green)' },
-                    { label: 'COGS',       val: -curr.totalCOGS,      color: 'var(--red)' },
-                    { label: 'Order fees', val: -curr.totalOrderFees,  color: 'var(--red)' },
-                    { label: 'Ad spend',   val: -(metaData?.spend||0), color: 'var(--red)' },
+                    { label: 'Revenue',          val: curr.netRevenue,       color: 'var(--green)' },
+                    { label: 'COGS',             val: -curr.totalCOGS,       color: 'var(--red)' },
+                    { label: 'Order fees',       val: -curr.totalOrderFees,  color: 'var(--red)' },
+                    { label: 'Fixed overhead',   val: -weeklyFixed,          color: 'var(--red)' },
+                    { label: 'Ad spend',         val: -(metaData?.spend||0), color: 'var(--red)' },
                   ].map(({ label, val, color }) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                       <span style={{ color: 'var(--text-dim)' }}>{label}</span>
                       <span style={{ color, fontWeight: 600 }}>{val < 0 ? `−${fmt(Math.abs(val), 2)}` : fmt(val, 2)}</span>
                     </div>
                   ))}
+                  <div style={{ borderTop: '1px solid var(--border)', marginTop: 4, paddingTop: 4, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-dim)' }}>
+                    <span>Fixed overhead = ${totalMonthlyFixed}/mo ÷ 4.33 weeks</span>
+                  </div>
                 </div>
               </div>
 

@@ -61,37 +61,38 @@ export const COGS = {
     category: 'On The Go Tin',
   },
 
-  // ── Daily Bar ──────────────────────────────────────────────────────────────
+  // ── Daily Bar ($5.00 manufacturing flat rate from producer) ──────────────
   'DailyBar_Lavender': {
     name: 'Daily Bar — Lavender',
-    unitCost: 4.05,
+    unitCost: 5.00,
     price: 15.00,
     category: 'Daily Bar',
   },
   'DailyBar_Lemongrass': {
     name: 'Daily Bar — Lemongrass',
-    unitCost: 4.05,
+    unitCost: 5.00,
     price: 15.00,
     category: 'Daily Bar',
   },
 
-  // ── Pocket Stick ──────────────────────────────────────────────────────────
+  // ── Pocket Stick (self-manufactured, raw materials only) ─────────────────
+  // Tube $0.44 + Tallow $0.003 + Beeswax $0.06 + Label $0.19 = $0.69
   'PocketStick_Spearmint': {
     name: 'Pocket Stick — Spearmint',
-    unitCost: 3.05,
-    price: 12.00,
+    unitCost: 0.69,
+    price: 6.00,
     category: 'Pocket Stick',
   },
   'PocketStick_Unscented': {
     name: 'Pocket Stick — Unscented',
-    unitCost: 3.05,
-    price: 11.00,
+    unitCost: 0.69,
+    price: 5.00,
     category: 'Pocket Stick',
   },
   'PocketStick_Vanilla': {
     name: 'Pocket Stick — Vanilla',
-    unitCost: 3.05,
-    price: 12.00,
+    unitCost: 0.69,
+    price: 6.00,
     category: 'Pocket Stick',
   },
 }
@@ -103,7 +104,7 @@ export const ORDER_FEES = {
   threepl_first_item:      2.50,   // 3PL pick fee for first item
   threepl_additional_item: 0.50,   // 3PL pick fee for each additional item
   packaging:               0.30,   // box/mailer per order
-  shopify_processing_rate: 0.025,  // 2.5% of order total
+  shopify_processing_rate: 0.029,  // 2.9% Shopify Basic plan
   shopify_processing_flat: 0.30,   // flat $0.30 per transaction
 }
 
@@ -111,5 +112,8 @@ export const ORDER_FEES = {
 // Used to show true net profit. Update as needed.
 
 export const MONTHLY_FIXED = {
-  shopify_subscription: 39,  // update to your actual plan ($39 Basic / $105 Shopify / $399 Advanced)
+  shopify_subscription:   29,   // Basic plan paid annually ($348/yr = $29/mo)
+  threepl_account_mgmt:  100,   // $25/week × 4
+  threepl_storage:        79,   // $19.25/week × 4 (approx)
+  // total fixed: $208/mo
 }
