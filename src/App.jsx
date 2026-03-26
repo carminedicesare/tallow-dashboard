@@ -383,13 +383,14 @@ export default function App() {
   const prev = shopifyData?.prior
   const isMock = curr?.isMock || metaData?.isMock
 
-  const netRevChange   = pctChange(curr?.netRevenue,    prev?.netRevenue)
+  const netRevChange   = pctChange(curr?.netRevenue, prev?.netRevenue)
   const marginChange   = curr && prev ? curr.grossMarginPct - prev.grossMarginPct : null
-  const roasChange     = metaData ? pctChange(metaData.roas, 1.5) : null // no prior meta for now
   const orderChange    = pctChange(curr?.orderCount, prev?.orderCount)
+  const netProfitChange = pctChange(curr?.netProfit, prev?.netProfit)
 
-  const cashFlow = curr && metaData
-    ? curr.netRevenue - curr.totalCOGS - metaData.spend
+  // Cash flow = net revenue - all costs (COGS + order fees) - ad spend
+  const cashFlow = curr
+    ? curr.netRevenue - curr.totalAllCosts - (metaData?.spend || 0)
     : null
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -451,17 +452,16 @@ export default function App() {
               sub={`${fmtNum(curr.orderCount)} orders · AOV ${fmt(curr.aov, 2)}`}
             />
             <KpiCard
-              label="Gross Margin"
-              value={curr.totalCOGS > 0 ? fmtPct(curr.grossMarginPct) : '—'}
-              change={curr.totalCOGS > 0 && prev?.totalCOGS > 0 ? marginChange : null}
-              sub={curr.totalCOGS > 0 ? `COGS ${fmt(curr.totalCOGS, 2)}` : 'Add COGS to cogsConfig.js'}
-              suffix=""
+              label="Net Profit"
+              value={curr.totalCOGS > 0 ? fmt(curr.netProfit, 2) : '—'}
+              change={curr.totalCOGS > 0 ? netProfitChange : null}
+              sub={curr.totalCOGS > 0 ? `Margin ${fmtPct(curr.netMarginPct)} · Fees ${fmt(curr.totalOrderFees, 2)}` : 'COGS configured ✓'}
             />
             <KpiCard
               label="ROAS"
               value={metaData?.roas != null ? `${metaData.roas.toFixed(2)}×` : '—'}
               change={null}
-              sub={metaData?.spend > 0 ? `Spend ${fmt(metaData.spend, 2)}` : 'No ad spend data'}
+              sub={metaData?.spend > 0 ? `Spend ${fmt(metaData.spend, 2)}` : 'Connect Meta Ads'}
             />
             <KpiCard
               label="Orders"
@@ -482,14 +482,23 @@ export default function App() {
             {/* Right column */}
             <div className="right-col">
               {/* Cash Flow */}
-              <div className={`card cash-flow-card ${cashFlow < 0 ? 'negative' : ''}`}>
-                <div className="card-title">Net Cash Flow</div>
+              <div className={`card cash-flow-card ${cashFlow !== null && cashFlow < 0 ? 'negative' : ''}`}>
+                <div className="card-title">Cash Flow This Week</div>
                 <div className={`cash-flow-amount ${cashFlow >= 0 ? 'positive' : 'negative'}`}>
                   {cashFlow !== null ? fmt(cashFlow, 2) : '—'}
                 </div>
-                <div className="cash-flow-sub">
-                  Revenue − COGS − Ad Spend
-                  {curr.totalCOGS === 0 && <span style={{ display: 'block', marginTop: 4, color: 'var(--yellow)' }}>⚠ COGS not set</span>}
+                <div className="cash-flow-sub" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {[
+                    { label: 'Revenue',    val: curr.netRevenue,      color: 'var(--green)' },
+                    { label: 'COGS',       val: -curr.totalCOGS,      color: 'var(--red)' },
+                    { label: 'Order fees', val: -curr.totalOrderFees,  color: 'var(--red)' },
+                    { label: 'Ad spend',   val: -(metaData?.spend||0), color: 'var(--red)' },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                      <span style={{ color: 'var(--text-dim)' }}>{label}</span>
+                      <span style={{ color, fontWeight: 600 }}>{val < 0 ? `−${fmt(Math.abs(val), 2)}` : fmt(val, 2)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 

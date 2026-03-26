@@ -4,7 +4,7 @@
  * Falls back to mock data if the API is not configured.
  */
 
-import { COGS } from '../cogsConfig.js'
+import { COGS, ORDER_FEES } from '../cogsConfig.js'
 
 // ─── Mock data for development / unconfigured state ──────────────────────────
 
@@ -133,12 +133,28 @@ function calculateRefunds(orders) {
   }, 0)
 }
 
+function calcOrderFees(order) {
+  const orderTotal = parseFloat(order.total_price || 0)
+  const itemCount  = (order.line_items || []).reduce((s, i) => s + (i.quantity || 0), 0)
+
+  const threepl = itemCount > 0
+    ? ORDER_FEES.threepl_first_item + (Math.max(itemCount - 1, 0) * ORDER_FEES.threepl_additional_item)
+    : 0
+  const packaging  = ORDER_FEES.packaging
+  const processing = (orderTotal * ORDER_FEES.shopify_processing_rate) + ORDER_FEES.shopify_processing_flat
+
+  return { threepl, packaging, processing, total: threepl + packaging + processing }
+}
+
 function processOrders(orders) {
   const grossRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total_price || 0), 0)
-  const refunds = calculateRefunds(orders)
-  const netRevenue = grossRevenue - refunds
-  const orderCount = orders.length
-  const aov = orderCount > 0 ? netRevenue / orderCount : 0
+  const refunds      = calculateRefunds(orders)
+  const netRevenue   = grossRevenue - refunds
+  const orderCount   = orders.length
+  const aov          = orderCount > 0 ? netRevenue / orderCount : 0
+
+  // Per-order fees totalled across all orders
+  const totalOrderFees = orders.reduce((sum, o) => sum + calcOrderFees(o).total, 0)
 
   // Units sold per SKU
   const skuSales = {}
@@ -154,15 +170,16 @@ function processOrders(orders) {
   // Enrich with COGS data
   const skuBreakdown = Object.entries(skuSales).map(([sku, data]) => {
     const cogsEntry = COGS[sku]
-    const unitCost = cogsEntry?.unitCost || 0
+    const unitCost  = cogsEntry?.unitCost || 0
     const unitPrice = cogsEntry?.price || (data.quantity > 0 ? data.revenue / data.quantity : 0)
     const totalCOGS = unitCost * data.quantity
     const grossProfit = data.revenue - totalCOGS
-    const marginPct = data.revenue > 0 ? (grossProfit / data.revenue) * 100 : 0
+    const marginPct   = data.revenue > 0 ? (grossProfit / data.revenue) * 100 : 0
 
     return {
       sku,
       name: cogsEntry?.name || sku,
+      category: cogsEntry?.category || 'Other',
       quantity: data.quantity,
       revenue: data.revenue,
       unitCost,
@@ -173,8 +190,11 @@ function processOrders(orders) {
     }
   })
 
-  const totalCOGS = skuBreakdown.reduce((s, p) => s + p.totalCOGS, 0)
-  const grossMarginPct = netRevenue > 0 ? ((netRevenue - totalCOGS) / netRevenue) * 100 : 0
+  const totalCOGS       = skuBreakdown.reduce((s, p) => s + p.totalCOGS, 0)
+  const totalAllCosts   = totalCOGS + totalOrderFees
+  const grossMarginPct  = netRevenue > 0 ? ((netRevenue - totalCOGS) / netRevenue) * 100 : 0
+  const netMarginPct    = netRevenue > 0 ? ((netRevenue - totalAllCosts) / netRevenue) * 100 : 0
+  const netProfit       = netRevenue - totalAllCosts
 
   return {
     grossRevenue,
@@ -183,7 +203,11 @@ function processOrders(orders) {
     orderCount,
     aov,
     totalCOGS,
+    totalOrderFees,
+    totalAllCosts,
     grossMarginPct,
+    netMarginPct,
+    netProfit,
     skuBreakdown,
   }
 }
