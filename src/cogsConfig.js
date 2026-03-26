@@ -112,8 +112,9 @@ export const ORDER_FEES = {
 // Used to show true net profit. Update as needed.
 
 export const MONTHLY_FIXED = {
-  shopify_subscription:   29,   // Basic plan paid annually ($348/yr = $29/mo)
-  threepl_account_mgmt:  100,   // $25/week × 4
-  threepl_storage:        79,   // $19.25/week × 4 (approx)
-  // total fixed: $208/mo
+  shopify_subscription:   29,    // Basic plan paid annually ($348/yr = $29/mo)
+  threepl_account_mgmt:  100,    // $25/week × 4
+  threepl_storage:        79,    // $19.25/week × 4 (approx)
+  marketing_agency:     1250,    // Monthly retainer
+  // total fixed: $1,458/mo
 }

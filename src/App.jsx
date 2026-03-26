@@ -161,22 +161,25 @@ function IncomeStatement({ curr, metaData, weeklyFixed, totalMonthlyFixed, range
       <div className="card-title">Income Statement — {rangeLabel}</div>
 
       <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 }}>Revenue</div>
-      <LineRow label="Gross Revenue"   value={fmt(curr.grossRevenue, 2)} color="var(--green)" />
-      <LineRow label="Refunds"         value={curr.refunds > 0 ? `−${fmt(curr.refunds, 2)}` : fmt(0,2)} color={curr.refunds > 0 ? 'var(--red)' : 'var(--text-dim)'} indent />
-      <LineRow label="Discounts"       value={curr.discounts > 0 ? `−${fmt(curr.discounts, 2)}` : fmt(0,2)} color={curr.discounts > 0 ? 'var(--red)' : 'var(--text-dim)'} indent />
-      <LineRow label="Net Revenue"     value={fmt(curr.netRevenue, 2)} bold border />
+      <LineRow label="Product Revenue"      value={fmt((curr.grossRevenue||0) - (curr.shippingCollected||0), 2)} color="var(--green)" />
+      <LineRow label="Shipping Collected"   value={curr.shippingCollected > 0 ? `+${fmt(curr.shippingCollected, 2)}` : '$0.00'} color={curr.shippingCollected > 0 ? 'var(--green)' : 'var(--text-dim)'} indent />
+      <LineRow label="Gross Revenue"        value={fmt(curr.grossRevenue, 2)} bold />
+      <LineRow label="Refunds"              value={curr.refunds > 0 ? `−${fmt(curr.refunds, 2)}` : '$0.00'} color={curr.refunds > 0 ? 'var(--red)' : 'var(--text-dim)'} indent />
+      <LineRow label="Discounts"            value={curr.discounts > 0 ? `−${fmt(curr.discounts, 2)}` : '$0.00'} color={curr.discounts > 0 ? 'var(--red)' : 'var(--text-dim)'} indent />
+      <LineRow label="Net Revenue"          value={fmt(curr.netRevenue, 2)} bold border />
 
       <div style={{ fontSize: 11, color: 'var(--text-dim)', margin: '14px 0 8px', textTransform: 'uppercase', letterSpacing: 0.6 }}>Cost of Goods</div>
-      <LineRow label="Total COGS"      value={`−${fmt(curr.totalCOGS, 2)}`} color="var(--red)" />
-      <LineRow label="Gross Profit"    value={fmt(curr.grossProfit, 2)} color={curr.grossProfit >= 0 ? 'var(--green)' : 'var(--red)'} bold border />
-      <LineRow label="Gross Margin"    value={fmtPct(curr.grossMarginPct)} indent />
+      <LineRow label="Total COGS"           value={`−${fmt(curr.totalCOGS, 2)}`} color="var(--red)" />
+      <LineRow label="Gross Profit"         value={fmt(curr.grossProfit, 2)} color={curr.grossProfit >= 0 ? 'var(--green)' : 'var(--red)'} bold border />
+      <LineRow label="Gross Margin"         value={fmtPct(curr.grossMarginPct)} indent />
 
       <div style={{ fontSize: 11, color: 'var(--text-dim)', margin: '14px 0 8px', textTransform: 'uppercase', letterSpacing: 0.6 }}>Operating Expenses</div>
-      <LineRow label="3PL Pick Fees"         value={`−${fmt(curr.feeBreakdown?.threepl, 2)}`}    color="var(--red)" indent />
-      <LineRow label="Packaging"             value={`−${fmt(curr.feeBreakdown?.packaging, 2)}`}  color="var(--red)" indent />
-      <LineRow label="Shopify Processing"    value={`−${fmt(curr.feeBreakdown?.processing, 2)}`} color="var(--red)" indent />
-      <LineRow label="Total Order Fees"      value={`−${fmt(curr.totalFees, 2)}`}                color="var(--red)" />
-      <LineRow label="Ad Spend (Meta)"       value={adSpend > 0 ? `−${fmt(adSpend, 2)}` : '—'}   color={adSpend > 0 ? 'var(--red)' : 'var(--text-dim)'} />
+      <LineRow label="3PL Pick Fees"        value={`−${fmt(curr.feeBreakdown?.threepl, 2)}`}    color="var(--red)" indent />
+      <LineRow label="Packaging"            value={`−${fmt(curr.feeBreakdown?.packaging, 2)}`}  color="var(--red)" indent />
+      <LineRow label="Shopify Processing"   value={`−${fmt(curr.feeBreakdown?.processing, 2)}`} color="var(--red)" indent />
+      <LineRow label="Postage / Shipping"   value={curr.postageCost > 0 ? `−${fmt(curr.postageCost, 2)}` : '—'} color={curr.postageCost > 0 ? 'var(--red)' : 'var(--text-dim)'} indent />
+      <LineRow label="Total Variable Fees"  value={`−${fmt((curr.totalFees||0) + (curr.postageCost||0), 2)}`} color="var(--red)" />
+      <LineRow label="Ad Spend (Meta)"      value={adSpend > 0 ? `−${fmt(adSpend, 2)}` : '—'}   color={adSpend > 0 ? 'var(--red)' : 'var(--text-dim)'} />
       <LineRow label={`Fixed Overhead (${fmt(totalMonthlyFixed)}/mo ÷ 4.33)`} value={`−${fmt(weeklyFixed, 2)}`} color="var(--red)" />
 
       <LineRow label="Operating Profit (EBITDA)"
@@ -305,13 +308,15 @@ function OrdersTab({ enrichedOrders }) {
                           <div>
                             <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 }}>Cost Breakdown</div>
                             {[
-                              { l: 'Gross Revenue',    v: fmt(order.grossRevenue, 2), c: 'var(--green)' },
-                              { l: 'Refund',           v: order.refund > 0 ? `−${fmt(order.refund, 2)}` : '—', c: order.refund > 0 ? 'var(--red)' : 'var(--text-dim)' },
-                              { l: 'COGS',             v: `−${fmt(order.totalCOGS, 2)}`, c: 'var(--red)' },
-                              { l: '3PL Pick Fees',    v: `−${fmt(order.fees?.threepl, 2)}`, c: 'var(--red)' },
-                              { l: 'Packaging',        v: `−${fmt(order.fees?.packaging, 2)}`, c: 'var(--red)' },
-                              { l: 'Processing Fee',   v: `−${fmt(order.fees?.processing, 2)}`, c: 'var(--red)' },
-                              { l: 'Net Profit',       v: fmt(order.netProfit, 2), c: order.netProfit >= 0 ? 'var(--green)' : 'var(--red)', bold: true },
+                              { l: 'Product Revenue',    v: fmt(order.productRevenue, 2),  c: 'var(--green)' },
+                              { l: 'Shipping Collected', v: order.shippingCollected > 0 ? `+${fmt(order.shippingCollected, 2)}` : '$0.00', c: order.shippingCollected > 0 ? 'var(--green)' : 'var(--text-dim)' },
+                              { l: 'Refund',             v: order.refund > 0 ? `−${fmt(order.refund, 2)}` : '—', c: order.refund > 0 ? 'var(--red)' : 'var(--text-dim)' },
+                              { l: 'COGS',               v: `−${fmt(order.totalCOGS, 2)}`, c: 'var(--red)' },
+                              { l: '3PL Pick Fees',      v: `−${fmt(order.fees?.threepl, 2)}`, c: 'var(--red)' },
+                              { l: 'Packaging',          v: `−${fmt(order.fees?.packaging, 2)}`, c: 'var(--red)' },
+                              { l: 'Processing Fee',     v: `−${fmt(order.fees?.processing, 2)}`, c: 'var(--red)' },
+                              { l: 'Postage (3PL)',       v: order.postageCost > 0 ? `−${fmt(order.postageCost, 2)}` : '—', c: order.postageCost > 0 ? 'var(--red)' : 'var(--text-dim)' },
+                              { l: 'Net Profit',         v: fmt(order.netProfit, 2), c: order.netProfit >= 0 ? 'var(--green)' : 'var(--red)', bold: true },
                             ].map(({ l, v, c, bold }) => (
                               <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                                 <span style={{ color: 'var(--text-dim)', fontWeight: bold ? 600 : 400 }}>{l}</span>
@@ -490,10 +495,10 @@ function CashFlowTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabe
           <div className="card">
             <div className="card-title">Order Fee Breakdown</div>
             {[
-              { label: '3PL — First Item',        value: curr.feeBreakdown?.threepl,     note: `$2.50 × orders with items` },
-              { label: '3PL — Additional Items',   value: null,                           note: '$0.50 per extra item' },
-              { label: 'Packaging',                value: curr.feeBreakdown?.packaging,   note: `$0.30 × ${curr.orderCount} orders` },
-              { label: 'Shopify Processing',        value: curr.feeBreakdown?.processing,  note: '2.9% + $0.30 per txn' },
+              { label: '3PL Pick Fees',      value: curr.feeBreakdown?.threepl,    note: '$2.50 first item + $0.50 each add\'l' },
+              { label: 'Packaging',           value: curr.feeBreakdown?.packaging,  note: `$0.30 × ${curr.orderCount} orders` },
+              { label: 'Shopify Processing',  value: curr.feeBreakdown?.processing, note: '2.9% + $0.30 per txn' },
+              { label: 'Postage (3PL actual)',value: curr.feeBreakdown?.postage,    note: 'Carrier rate charged by 3PL' },
             ].map(({ label, value, note }) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                 <div>
@@ -501,22 +506,40 @@ function CashFlowTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabe
                   <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{note}</div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--red)' }}>
-                  {value != null ? `−${fmt(value, 2)}` : '—'}
+                  {value != null && value > 0 ? `−${fmt(value, 2)}` : '—'}
                 </div>
               </div>
             ))}
+            {/* Shipping P&L summary */}
+            <div style={{ marginTop: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                <span style={{ color: 'var(--text-dim)' }}>Shipping collected from customers</span>
+                <span style={{ color: 'var(--green)' }}>+{fmt(curr.shippingCollected, 2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                <span style={{ color: 'var(--text-dim)' }}>Actual postage cost (3PL)</span>
+                <span style={{ color: 'var(--red)' }}>−{fmt(curr.postageCost, 2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, borderTop: '1px solid var(--border)', paddingTop: 4 }}>
+                <span style={{ color: 'var(--text-dim)' }}>Shipping margin</span>
+                <span style={{ color: (curr.shippingMargin || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {(curr.shippingMargin || 0) >= 0 ? '+' : ''}{fmt(curr.shippingMargin, 2)}
+                </span>
+              </div>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', fontWeight: 700, fontSize: 14 }}>
-              <span>Total Order Fees</span>
-              <span style={{ color: 'var(--red)' }}>−{fmt(curr.totalFees, 2)}</span>
+              <span>Total Variable Costs</span>
+              <span style={{ color: 'var(--red)' }}>−{fmt((curr.totalFees || 0) + (curr.postageCost || 0), 2)}</span>
             </div>
           </div>
 
           <div className="card">
             <div className="card-title">Fixed Overhead (Monthly)</div>
             {[
-              { label: 'Shopify Subscription',   value: 29,  note: 'Basic plan, billed annually' },
-              { label: '3PL Account Management', value: 100, note: '$25/week × 4' },
-              { label: '3PL Storage',            value: 79,  note: '$19.25/week × 4 approx' },
+              { label: 'Shopify Subscription',   value: 29,   note: 'Basic plan, billed annually' },
+              { label: '3PL Account Management', value: 100,  note: '$25/week × 4' },
+              { label: '3PL Storage',            value: 79,   note: '$19.25/week × 4 approx' },
+              { label: 'Marketing Agency',        value: 1250, note: 'Monthly retainer' },
             ].map(({ label, value, note }) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                 <div>
