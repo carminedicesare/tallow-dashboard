@@ -255,7 +255,9 @@ async function fetchOrders(start, end) {
   if (!storeUrl || !token) throw new Error('Shopify not configured')
 
   const params = new URLSearchParams({
-    status: 'any',
+    status:           'any',             // open, closed, cancelled
+    financial_status: 'any',             // pending, paid, refunded, voided, etc.
+    fulfillment_status: 'any',           // fulfilled, unfulfilled, partial, etc.
     created_at_min: start.toISOString(),
     created_at_max: end.toISOString(),
     limit: '250',
