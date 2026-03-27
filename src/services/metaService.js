@@ -75,7 +75,7 @@ async function fetchSpendHistory() {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export async function getMetaData(netRevenue = 0) {
+export async function getMetaData(netRevenue = 0, dateRange = null) {
   const mockFallback = (err) => {
     console.warn('Meta API unavailable, using mock data:', err?.message || err)
     const roas = MOCK_META.current.spend > 0 ? netRevenue / MOCK_META.current.spend : 1.57
@@ -90,11 +90,19 @@ export async function getMetaData(netRevenue = 0) {
     }
   }
 
+  // Build time_range from dateRange if provided, otherwise fall back to last_7d
+  const timeParams = dateRange?.start && dateRange?.end ? {
+    time_range: JSON.stringify({
+      since: new Date(dateRange.start).toISOString().split('T')[0],
+      until: new Date(dateRange.end).toISOString().split('T')[0],
+    })
+  } : { date_preset: 'last_7d' }
+
   try {
     const params = new URLSearchParams({
       path: 'act_422096433958662/insights',
       fields: 'spend,impressions,clicks,actions',
-      date_preset: 'last_7d',
+      ...timeParams,
     })
 
     const [insightsRes, sparkline] = await Promise.all([

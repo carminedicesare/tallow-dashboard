@@ -1100,7 +1100,7 @@ export default function App() {
     }
     try {
       const s = await getShopifyData(p)
-      const m = await getMetaData(s.current?.netRevenue||0)
+      const m = await getMetaData(s.current?.netRevenue||0, s.current?.range)
       setShopify(s); setMeta(m); setLastSync(new Date())
       wrc(p,s,m); setStatus('done')
     } catch(e) { setError(e.message); setStatus('error') }
