@@ -142,48 +142,80 @@ function HBar({ items, valueKey='revenue', labelKey='name', colorFn }) {
 // ─── Daily bar chart ──────────────────────────────────────────────────────────
 function DailyBars({ data, valueKey='revenue', color='var(--purple)', height=100 }) {
   if (!data?.length) return null
-  const max = Math.max(...data.map(d=>d[valueKey]),1)
-  const count = data.length
-  const useScroll = count > 14
-  const barW = useScroll ? Math.max(28, Math.min(44, 400/count)) : null
-  const labelH = 18 // px reserved for date label at bottom
-  const valueH = count <= 14 ? 16 : 0 // px reserved for value label at top
-  const chartH = height - labelH - valueH // actual bar area height in px
+
+  // Group data to keep bar count manageable (max ~20 bars)
+  const raw = data
+  const grouped = (() => {
+    if (raw.length <= 14) return raw // daily — show as-is
+    if (raw.length <= 60) {
+      // Group into weeks
+      const weeks = {}
+      raw.forEach(d => {
+        const dt = new Date(d.date + 'T12:00:00')
+        // Get Monday of that week
+        const day = dt.getDay()
+        const diff = (day === 0 ? -6 : 1 - day)
+        const mon = new Date(dt); mon.setDate(dt.getDate() + diff)
+        const key = mon.toISOString().split('T')[0]
+        if (!weeks[key]) weeks[key] = { date: key, [valueKey]: 0 }
+        weeks[key][valueKey] += d[valueKey]
+      })
+      return Object.values(weeks).sort((a,b) => a.date.localeCompare(b.date))
+    }
+    // Group into months
+    const months = {}
+    raw.forEach(d => {
+      const key = d.date.substring(0, 7) // YYYY-MM
+      if (!months[key]) months[key] = { date: key + '-01', [valueKey]: 0 }
+      months[key][valueKey] += d[valueKey]
+    })
+    return Object.values(months).sort((a,b) => a.date.localeCompare(b.date))
+  })()
+
+  const count  = grouped.length
+  const max    = Math.max(...grouped.map(d => d[valueKey]), 1)
+  const labelH = 18
+  const valueH = count <= 14 ? 16 : 0
+  const chartH = height - labelH - valueH
+  const isWeekly  = raw.length > 14 && raw.length <= 60
+  const isMonthly = raw.length > 60
 
   return (
-    <div style={{overflowX: useScroll ? 'auto' : 'visible', WebkitOverflowScrolling:'touch'}}>
-      <div style={{
-        display:'flex', alignItems:'flex-end', gap: useScroll ? 3 : 4,
-        paddingTop: valueH,
-        minWidth: useScroll ? count * (barW + 3) : undefined,
-      }}>
-        {data.map((d,i)=>{
-          const pct = (d[valueKey]/max)
+    <div style={{width:'100%'}}>
+      {(isWeekly || isMonthly) && (
+        <div style={{fontSize:9,color:'var(--text-muted)',marginBottom:4,textAlign:'right'}}>
+          {isWeekly ? 'Weekly totals' : 'Monthly totals'}
+        </div>
+      )}
+      <div style={{display:'flex', alignItems:'flex-end', gap:4, paddingTop:valueH, width:'100%'}}>
+        {grouped.map((d, i) => {
+          const pct  = d[valueKey] / max
           const barH = Math.max(3, Math.round(pct * chartH))
-          const isLast = i === data.length-1
-          const showLabel = count <= 14 || i % Math.ceil(count/10) === 0 || isLast
+          const isLast = i === grouped.length - 1
+          const dt   = new Date(d.date + 'T12:00:00')
+          const label = isMonthly
+            ? dt.toLocaleDateString('en-US', {month:'short'})
+            : dt.toLocaleDateString('en-US', {month:'short', day:'numeric'})
           return (
             <div key={i} style={{
-              width: useScroll ? barW : undefined,
-              flex: useScroll ? 'none' : 1,
+              flex: 1,
               display:'flex', flexDirection:'column', alignItems:'center',
-              gap:3, position:'relative',
+              gap:3, position:'relative', minWidth:0,
             }}>
               {count <= 14 && (
-                <span style={{fontSize:9,color:'var(--text-dim)',position:'absolute',top:-(valueH),whiteSpace:'nowrap'}}>
+                <span style={{fontSize:9,color:'var(--text-dim)',position:'absolute',top:-valueH,whiteSpace:'nowrap'}}>
                   {fmt(d[valueKey],0)}
                 </span>
               )}
               <div style={{
-                width:'100%',
-                height: barH,
+                width:'100%', height:barH,
                 background: isLast ? 'var(--purple-light)' : color,
                 borderRadius:'2px 2px 0 0',
                 transition:'height 0.4s ease',
                 opacity: isLast ? 1 : 0.75,
               }}/>
-              <span style={{fontSize:8,color:'var(--text-dim)',whiteSpace:'nowrap',height:labelH,opacity:showLabel?1:0}}>
-                {new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+              <span style={{fontSize:8,color:'var(--text-dim)',whiteSpace:'nowrap',height:labelH,overflow:'hidden',maxWidth:'100%',textAlign:'center'}}>
+                {label}
               </span>
             </div>
           )
