@@ -454,4 +454,49 @@ html,body,#root{
   .grid-2-1,.grid-3-2{grid-template-columns:1fr}
 
   .data-table th,.data-table td{padding:8px 8px;font-size:12px}
+
+  /* ── Table overflow containers ── */
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* ── KPI grids → 2-up on mobile ── */
+  .kpi-grid-5{grid-template-columns:1fr 1fr}
+
+  /* ── Cash liquidity summary grid → 2-up ── */
+  .cash-kpi-grid{grid-template-columns:1fr 1fr!important}
+
+  /* ── Cash account breakdown → single col ── */
+  .cash-acct-grid{grid-template-columns:1fr!important}
+
+  /* ── Cash edit inputs → single col ── */
+  .cash-edit-grid{grid-template-columns:1fr!important}
+
+  /* ── Inline 3-col grids → 1-col on mobile ── */
+  .grid-3-inline{grid-template-columns:1fr!important}
+
+  /* ── Order detail expand → single col ── */
+  .order-detail-grid{grid-template-columns:1fr!important}
+
+  /* ── Orders toolbar → stack on mobile ── */
+  .orders-toolbar{flex-direction:column;align-items:stretch!important}
+  .orders-toolbar input{width:100%!important;max-width:100%!important}
+  .orders-filter-row{justify-content:flex-start;flex-wrap:wrap}
+
+  /* ── Sub-tab bar → full width ── */
+  .fs-subtab-bar{width:100%;justify-content:stretch}
+  .fs-subtab-bar button{flex:1;text-align:center}
+
+  /* ── Financials KPI strip: already 2-col, keep font smaller ── */
+  .kpi-grid-5 .card div[style*="fontSize:22"]{font-size:17px!important}
+
+  /* ── Order detail stats row → wrap ── */
+  .order-stats-row{flex-wrap:wrap;gap:8px!important}
+  .order-stats-row > div{flex:1 1 45%}
+
+  /* ── Insight cards full width ── */
+  .insight-card{flex-direction:column}
+  .insight-card .insight-icon{margin-bottom:2px}
+
+  /* ── Benchmark 3-col sections ── */
+  .benchmark-grid{grid-template-columns:1fr!important}
+  .growth-levers-grid{grid-template-columns:1fr!important}
 }

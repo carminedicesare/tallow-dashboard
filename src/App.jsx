@@ -396,7 +396,7 @@ function CashLiquidity({ weeklyBurn }) {
       {editing ? (
         <div style={{display:'flex',flexDirection:'column',gap:12}}>
           <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:2}}>Enter your current balances (stays in your browser — never sent anywhere):</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div className="cash-edit-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
             {/* Checking */}
             <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
               <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:6}}>🏦 Chase Checking</div>
@@ -419,7 +419,7 @@ function CashLiquidity({ weeklyBurn }) {
             <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
               <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:6}}>
                 💳 <input value={cc1Label} onChange={e=>setCc1Label(e.target.value)}
-                  style={{background:'transparent',border:'none',outline:'none',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,fontFamily:'var(--font)',width:120}}/>
+                  style={{background:'transparent',border:'none',outline:'none',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,fontFamily:'var(--font)',width:'100%',maxWidth:140}}/>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:6}}>
                 <span style={{color:'var(--red)',fontWeight:700}}>$</span>
@@ -431,7 +431,7 @@ function CashLiquidity({ weeklyBurn }) {
             <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
               <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:6}}>
                 💳 <input value={cc2Label} onChange={e=>setCc2Label(e.target.value)}
-                  style={{background:'transparent',border:'none',outline:'none',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,fontFamily:'var(--font)',width:120}}/>
+                  style={{background:'transparent',border:'none',outline:'none',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,fontFamily:'var(--font)',width:'100%',maxWidth:140}}/>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:6}}>
                 <span style={{color:'var(--red)',fontWeight:700}}>$</span>
@@ -448,7 +448,7 @@ function CashLiquidity({ weeklyBurn }) {
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:14}}>
           {/* KPI row */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+          <div className="cash-kpi-grid" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
             {[
               {l:'Total Cash',      v:fmt(totalCash,0),   c:'var(--green)',   note:'Checking + savings'},
               {l:'Credit Card Debt',v:fmt(totalCC,0),     c:'var(--red)',     note:`${data.cc1Label}${data.cc2>0?' + '+data.cc2Label:''}`},
@@ -464,7 +464,7 @@ function CashLiquidity({ weeklyBurn }) {
           </div>
 
           {/* Account breakdown */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div className="cash-acct-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
             {/* Cash accounts */}
             <div style={{background:'#f0faf5',border:'1px solid #a8dfc0',borderRadius:8,padding:'12px 14px'}}>
               <div style={{fontSize:10,fontWeight:700,color:'var(--green)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:8}}>💰 Cash Accounts</div>
@@ -669,7 +669,7 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMont
                   : <div style={{display:'flex',gap:6,alignItems:'center'}}>
                       <span style={{color:'var(--text-dim)',fontWeight:700}}>$</span>
                       <input type="number" value={invInput} onChange={e=>setInvInput(e.target.value)} autoFocus
-                        placeholder="0.00" style={{width:90,background:'white',border:'1px solid var(--border2)',borderRadius:6,padding:'4px 8px',fontSize:13,fontWeight:700,outline:'none'}}/>
+                        placeholder="0.00" style={{width:90,maxWidth:'100%',background:'white',border:'1px solid var(--border2)',borderRadius:6,padding:'4px 8px',fontSize:13,fontWeight:700,outline:'none'}}/>
                       <button className="btn-ask" style={{padding:'5px 12px',fontSize:12}} onClick={saveCFData}>Save</button>
                       <button className="btn-sm" style={{background:'white',color:'var(--text)',border:'1px solid var(--border2)'}} onClick={()=>setEditingCF(false)}>✕</button>
                     </div>
@@ -877,13 +877,13 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, pe
       </div>
 
       {/* Sub-tab bar */}
-      <div style={{display:'flex',gap:4,background:'var(--card-bg2)',padding:4,borderRadius:10,alignSelf:'flex-start',flexWrap:'wrap'}}>
+      <div className="fs-subtab-bar" style={{display:'flex',gap:4,background:'var(--card-bg2)',padding:4,borderRadius:10,flexWrap:'wrap'}}>
         {subTabs.map(t=>(
           <button key={t.id} onClick={()=>setFsTab(t.id)}
             style={{padding:'7px 18px',borderRadius:7,border:'none',cursor:'pointer',fontSize:13,fontWeight:600,
               background:fsTab===t.id?'var(--surface)':'transparent',
               color:fsTab===t.id?'#fff':'var(--text-dim)',
-              transition:'all 0.15s'}}>
+              transition:'all 0.15s',flex:'1 1 auto',textAlign:'center'}}>
             {t.label}
           </button>
         ))}
@@ -1334,9 +1334,9 @@ function OrdersTab({ enrichedOrders }) {
 
       {/* Controls */}
       <div className="card" style={{padding:0,overflow:'hidden'}}>
-        <div style={{padding:'14px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-          <div className="card-title" style={{margin:0,flex:1}}>Order P&amp;L — {sorted.length} orders</div>
-          <div style={{display:'flex',gap:6}}>
+        <div className="orders-toolbar" style={{padding:'14px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div className="card-title" style={{margin:0,flex:1,minWidth:120}}>Order P&amp;L — {sorted.length} orders</div>
+          <div className="orders-filter-row" style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             {['all','profitable','refunded'].map(f=>(
               <button key={f} onClick={()=>setFilt(f)}
                 style={{
@@ -1353,7 +1353,7 @@ function OrdersTab({ enrichedOrders }) {
           <input
             type="text" placeholder="Search order #, email, product…"
             value={search} onChange={e=>setSrch(e.target.value)}
-            style={{background:'var(--card-bg2)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 12px',color:'var(--text)',fontSize:12,width:220,outline:'none'}}
+            style={{background:'var(--card-bg2)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 12px',color:'var(--text)',fontSize:12,width:220,maxWidth:'100%',flex:'1 1 160px',outline:'none'}}
           />
         </div>
 
@@ -1402,17 +1402,17 @@ function OrdersTab({ enrichedOrders }) {
                   {expand===o.id && (
                     <tr key={`${o.id}-d`} className="row-detail">
                       <td colSpan={10}>
-                        <div style={{padding:'14px 16px',background:'var(--card-bg2)',borderRadius:6,margin:'4px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+                        <div className="order-detail-grid" style={{padding:'14px 16px',background:'var(--card-bg2)',borderRadius:6,margin:'4px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
                           <div>
                             <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:0.6}}>Line Items</div>
                             {o.lineItems.map((li,i)=>(
                               <div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto',fontSize:12,padding:'6px 0',borderBottom:'1px solid var(--border)',gap:8}}>
                                 <span style={{fontWeight:500}}>{li.name} × {li.qty}</span>
-                                <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
-                                  <span style={{color:'var(--text-dim)'}}>{fmt(li.revenue,2)} rev</span>
-                                  <span style={{color:'var(--red)'}}>−{fmt(li.cogs,2)} COGS</span>
-                                  <span style={{color:li.grossProfit>=0?'var(--green)':'var(--red)',fontWeight:700}}>{fmt(li.grossProfit,2)} GP</span>
-                                  <span style={{color:'var(--text-dim)'}}>{fmtP(li.marginPct)} margin</span>
+                                <div style={{display:'flex',gap:8,justifyContent:'flex-end',flexWrap:'wrap'}}>
+                                  <span style={{color:'var(--text-dim)',whiteSpace:'nowrap'}}>{fmt(li.revenue,2)} rev</span>
+                                  <span style={{color:'var(--red)',whiteSpace:'nowrap'}}>−{fmt(li.cogs,2)} COGS</span>
+                                  <span style={{color:li.grossProfit>=0?'var(--green)':'var(--red)',fontWeight:700,whiteSpace:'nowrap'}}>{fmt(li.grossProfit,2)} GP</span>
+                                  <span style={{color:'var(--text-dim)',whiteSpace:'nowrap'}}>{fmtP(li.marginPct)}</span>
                                 </div>
                               </div>
                             ))}
@@ -1552,7 +1552,7 @@ function ProductsTab({ skuBreakdown }) {
           <SectionHead title="Full SKU P&L Matrix"/>
           <span style={{fontSize:11,color:'var(--text-dim)'}}>Blended gross margin: {fmtP(blendedGM)}</span>
         </div>
-        <div className="table-wrap"><table className="data-table">
+        <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}><table className="data-table">
           <thead>
             <tr>
               <th>Product</th>
@@ -1914,7 +1914,7 @@ function InsightsTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMont
       {/* ── DTC Benchmark Scorecard ── */}
       <div className="card">
         <SectionHead title="DTC Benchmark Scorecard" sub="How Hide Tallow Co. compares to healthy DTC skincare brands"/>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginTop:14}}>
+        <div className="benchmark-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginTop:14}}>
           {benchmarks.map(({metric,yours,benchmark,status})=>(
             <div key={metric} style={{
               background: statusBg[status],
@@ -1937,7 +1937,7 @@ function InsightsTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMont
       {/* ── Growth Lever Simulator ── */}
       <div className="card">
         <SectionHead title="Growth Lever Simulator" sub="What a 10% improvement in each lever adds to your bottom line this period"/>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginTop:14}}>
+        <div className="growth-levers-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginTop:14}}>
           {[
             { lever:'↑ AOV +10%',           impact: curr.orderCount * (curr.aov * 0.1) * (grossMarginPct/100),  desc:`Add an order bump or bundle. Every +$1 AOV = ${fmt(curr.orderCount*1*(grossMarginPct/100),0)} more gross profit.`, icon:'🛒' },
             { lever:'↓ Ad Spend -10%',       impact: ad * 0.1,                                                    desc:'Better creative or tighter audiences — saved spend drops straight to the bottom line.',                        icon:'📣' },
