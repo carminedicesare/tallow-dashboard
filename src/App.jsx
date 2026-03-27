@@ -1192,15 +1192,7 @@ export default function App() {
       <header className="header">
         <div className="header-left">
           <div className="logo">
-            {/* Circle badge logo matching Hide Tallow Co. brand */}
-            <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg" style={{flexShrink:0}}>
-              <circle cx="19" cy="19" r="19" fill="#0e3a27"/>
-              <circle cx="19" cy="19" r="16" fill="none" stroke="white" strokeWidth="1.2"/>
-              <circle cx="19" cy="19" r="11" fill="white"/>
-              <text x="19" y="13" textAnchor="middle" fontSize="6" fontWeight="700" fontFamily="serif" fill="#0e3a27" letterSpacing="1">HIDE</text>
-              <text x="19" y="27" textAnchor="middle" fontSize="4.5" fontWeight="700" fontFamily="serif" fill="#0e3a27" letterSpacing="0.5">TALLOW CO.</text>
-              <text x="19" y="21" textAnchor="middle" fontSize="10" fill="#0e3a27">🐄</text>
-            </svg>
+            <img src="/logo.png" alt="Hide Tallow Co." className="logo-img" style={{height:'44px',width:'auto',flexShrink:0,objectFit:'contain'}} />
             <div className="logo-text">
               <span className="logo-name">Hide Tallow <span className="logo-co">Co.</span></span>
               <span className="logo-sub">Financial Command Center</span>
