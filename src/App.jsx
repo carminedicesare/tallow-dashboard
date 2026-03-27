@@ -5,7 +5,7 @@ import { askClaude }      from './services/claudeService.js'
 import { MONTHLY_FIXED, COGS }  from './cogsConfig.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const CACHE_KEY    = 'tallow_dash_v6'
+const CACHE_KEY    = 'tallow_dash_v7'
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000
 
 const TIME_PRESETS = [
@@ -25,6 +25,7 @@ const TABS = [
   { id: 'orders',    label: 'Orders',     icon: '≡' },
   { id: 'products',  label: 'Products',   icon: '◫' },
   { id: 'ads',       label: 'Ads',        icon: '◎' },
+  { id: 'insights',  label: 'Insights',   icon: '◉' },
 ]
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -129,7 +130,7 @@ function HBar({ items, valueKey='revenue', labelKey='name', colorFn }) {
                 {item.marginPct != null && <span style={{fontSize:11,color:item.marginPct>=50?'var(--green)':'var(--yellow)'}}>{fmtP(item.marginPct)} margin</span>}
               </div>
             </div>
-            <div style={{height:6,background:'var(--surface2)',borderRadius:3,overflow:'hidden'}}>
+            <div style={{height:6,background:'var(--card-bg2)',borderRadius:3,overflow:'hidden'}}>
               <div style={{height:'100%',width:`${pct}%`,background:color,borderRadius:3,transition:'width 0.5s ease',minWidth:4}}/>
             </div>
           </div>
@@ -240,7 +241,7 @@ function Waterfall({ items }) {
         return (
           <div key={i} style={{display:'grid',gridTemplateColumns:'minmax(100px,160px) 1fr minmax(60px,80px)',alignItems:'center',gap:8}}>
             <span style={{fontSize:12,color:isTotal?'var(--text)':'var(--text-dim)',fontWeight:isTotal?700:400,textAlign:'right'}}>{item.label}</span>
-            <div style={{height:isTotal?10:7,background:'var(--surface2)',borderRadius:4,overflow:'hidden'}}>
+            <div style={{height:isTotal?10:7,background:'var(--card-bg2)',borderRadius:4,overflow:'hidden'}}>
               <div style={{height:'100%',width:`${pct}%`,background:color,borderRadius:4,transition:'width 0.5s ease'}}/>
             </div>
             <span style={{fontSize:12,fontWeight:isTotal?700:500,color,textAlign:'right'}}>
@@ -337,12 +338,12 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, sho
 
   // Cost composition for donut
   const donutSlices = [
-    { label:'COGS',       value: curr.totalCOGS,          color:'#f05e5e' },
-    { label:'Fees',       value: curr.totalFees||0,        color:'#f5a623' },
-    { label:'Postage',    value: curr.postageCost||0,       color:'#e8774d' },
-    { label:'Ad Spend',   value: ad,                       color:'#9b59b6' },
-    { label:'Overhead',   value: weeklyFixed,              color:'#5b7fa6' },
-    { label:'Net Profit', value: Math.max(nop,0),          color:'#4cd480' },
+    { label:'COGS',       value: curr.totalCOGS,          color:'#e05c5c' },
+    { label:'Fees',       value: curr.totalFees||0,        color:'#e89a2a' },
+    { label:'Postage',    value: curr.postageCost||0,       color:'#d4784a' },
+    { label:'Ad Spend',   value: ad,                       color:'#7b68ce' },
+    { label:'Overhead',   value: weeklyFixed,              color:'#4a8fb5' },
+    { label:'Net Profit', value: Math.max(nop,0),          color:'#1e9e5e' },
   ].filter(s=>s.value>0)
 
   const profitWaterfall = [
@@ -500,7 +501,7 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, sho
                     {v>0&&total>0&&<span style={{color:'var(--text-dim)',fontWeight:400}}> ({fmtP((v/total)*100,1)})</span>}
                   </span>
                 </div>
-                <div style={{height:4,background:'var(--surface2)',borderRadius:2,overflow:'hidden'}}>
+                <div style={{height:4,background:'var(--card-bg2)',borderRadius:2,overflow:'hidden'}}>
                   <div style={{height:'100%',width:`${total>0?clamp((v/total)*100,0,100):0}%`,background:'var(--red)',borderRadius:2}}/>
                 </div>
               </div>
@@ -592,7 +593,7 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel }) 
                     <span style={{color:'var(--text-dim)'}}>{label}</span>
                     <span style={{color,fontWeight:700}}>{fmtP(pct)}</span>
                   </div>
-                  <div style={{height:8,background:'var(--surface2)',borderRadius:4,overflow:'hidden'}}>
+                  <div style={{height:8,background:'var(--card-bg2)',borderRadius:4,overflow:'hidden'}}>
                     <div style={{height:'100%',width:`${clamp(pct,0,100)}%`,background:color,borderRadius:4,transition:'width 0.5s'}}/>
                   </div>
                 </div>
@@ -619,7 +620,7 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel }) 
                 </div>
               ))}
               {/* Shipping P&L */}
-              <div style={{marginTop:10,padding:'10px',background:'var(--surface2)',borderRadius:6}}>
+              <div style={{marginTop:10,padding:'10px',background:'var(--card-bg2)',borderRadius:6}}>
                 <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:6,textTransform:'uppercase',letterSpacing:0.6}}>Shipping P&amp;L</div>
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
                   <span style={{color:'var(--text-dim)'}}>Collected from customers</span>
@@ -753,7 +754,7 @@ function OrdersTab({ enrichedOrders }) {
           <input
             type="text" placeholder="Search order #, email, product…"
             value={search} onChange={e=>setSrch(e.target.value)}
-            style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 12px',color:'var(--text)',fontSize:12,width:220,outline:'none'}}
+            style={{background:'var(--card-bg2)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 12px',color:'var(--text)',fontSize:12,width:220,outline:'none'}}
           />
         </div>
 
@@ -802,7 +803,7 @@ function OrdersTab({ enrichedOrders }) {
                   {expand===o.id && (
                     <tr key={`${o.id}-d`} className="row-detail">
                       <td colSpan={10}>
-                        <div style={{padding:'14px 16px',background:'var(--surface2)',borderRadius:6,margin:'4px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+                        <div style={{padding:'14px 16px',background:'var(--card-bg2)',borderRadius:6,margin:'4px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
                           <div>
                             <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:0.6}}>Line Items</div>
                             {o.lineItems.map((li,i)=>(
@@ -970,7 +971,7 @@ function ProductsTab({ skuBreakdown }) {
           <tbody>
             {Object.entries(cats).map(([cat, skus])=>[
               <tr key={`cat-${cat}`}>
-                <td colSpan={10} style={{background:'var(--surface2)',padding:'6px 12px',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:0.6,color:'var(--text-dim)'}}>
+                <td colSpan={10} style={{background:'var(--card-bg2)',padding:'6px 12px',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:0.6,color:'var(--text-dim)'}}>
                   {cat} — {fmt(skus.reduce((s,sk)=>s+sk.revenue,0),2)} revenue · {fmtP(skus.reduce((s,sk)=>s+sk.revenue,0)>0?(skus.reduce((s,sk)=>s+sk.grossProfit,0)/skus.reduce((s,sk)=>s+sk.revenue,0))*100:0)} blended margin
                 </td>
               </tr>,
@@ -990,7 +991,7 @@ function ProductsTab({ skuBreakdown }) {
                   <td style={{textAlign:'right'}}><MBar pct={sk.unitCost>0?sk.marginPct:null}/></td>
                   <td style={{textAlign:'right'}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:6}}>
-                      <div style={{width:50,height:4,background:'var(--surface2)',borderRadius:2,overflow:'hidden'}}>
+                      <div style={{width:50,height:4,background:'var(--card-bg2)',borderRadius:2,overflow:'hidden'}}>
                         <div style={{height:'100%',width:`${totalRev>0?(sk.revenue/totalRev)*100:0}%`,background:'var(--purple)',borderRadius:2}}/>
                       </div>
                       <span style={{fontSize:11,color:'var(--text-dim)',minWidth:32,textAlign:'right'}}>{fmtP((sk.revenue/totalRev)*100,0)}</span>
@@ -1135,6 +1136,232 @@ function ClaudeQA({ financialData }) {
   )
 }
 
+// ─── INSIGHTS TAB ─────────────────────────────────────────────────────────────
+function InsightsTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed }) {
+  if (!curr) return null
+  const ad  = metaData?.spend || 0
+  const nop = curr.netProfit - ad - weeklyFixed
+  const nopPct = curr.netRevenue > 0 ? (nop / curr.netRevenue) * 100 : 0
+  const grossMarginPct = curr.grossMarginPct || 0
+
+  // ── Break-even analysis ──────────────────────────────────────────────────────
+  const varCostRatio = curr.netRevenue > 0
+    ? ((curr.totalCOGS + (curr.totalFees||0) + (curr.postageCost||0)) / curr.netRevenue)
+    : 0.6
+  const breakevenRevenue = varCostRatio < 1 ? weeklyFixed / (1 - varCostRatio) : 0
+  const breakevenOrders  = curr.aov > 0 ? Math.ceil(breakevenRevenue / curr.aov) : 0
+  const revenueProgress  = breakevenRevenue > 0 ? Math.min((curr.netRevenue / breakevenRevenue) * 100, 150) : 100
+  const isPastBreakeven  = curr.netRevenue >= breakevenRevenue
+
+  // ── LTV / CAC estimates ──────────────────────────────────────────────────────
+  const avgOrdersPerYear = 1.8
+  const estimatedLTV1yr  = curr.aov * avgOrdersPerYear * (grossMarginPct / 100)
+  const cac = ad > 0 && curr.orderCount > 0 ? ad / curr.orderCount : null
+  const ltvcac = cac && estimatedLTV1yr > 0 ? estimatedLTV1yr / cac : null
+
+  // ── Intelligent alerts ───────────────────────────────────────────────────────
+  const alerts = []
+  if (nop < 0)
+    alerts.push({ type:'bad', icon:'🔴', title:'Operating at a Loss', desc:`You're losing ${fmt(Math.abs(nop),2)} this period after all costs. Review ad spend and fixed overhead allocation.` })
+  if (ad > 0 && curr.netRevenue > 0 && (ad/curr.netRevenue) > 0.3)
+    alerts.push({ type:'warn', icon:'⚠️', title:'Ad Spend is High vs Revenue', desc:`Meta ads are ${fmtP((ad/curr.netRevenue)*100)} of net revenue. DTC benchmark is 15–25%. Consider tightening targeting or pausing underperformers.` })
+  if (metaData?.roas != null && metaData.roas < 2)
+    alerts.push({ type:'warn', icon:'📉', title:'Low ROAS', desc:`ROAS of ${metaData.roas.toFixed(2)}× is below the 2× breakeven threshold for most DTC brands. Your blended margin suggests you need at least ${(1/(grossMarginPct/100)).toFixed(1)}× to break even on ads.` })
+  if (curr.refunds > 0 && curr.grossRevenue > 0 && (curr.refunds/curr.grossRevenue) > 0.05)
+    alerts.push({ type:'bad', icon:'↩️', title:'High Refund Rate', desc:`Refunds are ${fmtP((curr.refunds/curr.grossRevenue)*100)} of gross revenue — above the 2–3% DTC benchmark. Investigate product quality or customer experience issues.` })
+  if (grossMarginPct >= 60)
+    alerts.push({ type:'good', icon:'✅', title:'Strong Gross Margin', desc:`${fmtP(grossMarginPct)} gross margin is excellent for a tallow skincare brand. This gives you room to invest in customer acquisition.` })
+  if ((curr.shippingMargin||0) < 0)
+    alerts.push({ type:'warn', icon:'📦', title:'Shipping Subsidy', desc:`You're subsidizing shipping by ${fmt(Math.abs(curr.shippingMargin||0),2)} this period. Consider adding a shipping minimum or adjusting rates.` })
+  if (!isPastBreakeven)
+    alerts.push({ type:'warn', icon:'📊', title:'Below Break-even', desc:`You need ${fmt(breakevenRevenue,2)} in weekly revenue to cover all fixed + variable costs. Currently at ${fmtP(revenueProgress)} of that target.` })
+  if (ltvcac && ltvcac > 3)
+    alerts.push({ type:'good', icon:'🚀', title:'Healthy LTV:CAC', desc:`Estimated LTV:CAC of ${ltvcac.toFixed(1)}× suggests your ad spend is creating durable customer value. Scale with confidence.` })
+
+  // ── DTC Benchmarks ───────────────────────────────────────────────────────────
+  const benchmarks = [
+    { metric:'Gross Margin',   yours: fmtP(grossMarginPct),   benchmark:'55–70%',  status: grossMarginPct >= 55 ? 'good' : grossMarginPct >= 40 ? 'warn' : 'bad' },
+    { metric:'Net Op. Margin', yours: fmtP(nopPct),           benchmark:'10–20%',  status: nopPct >= 10 ? 'good' : nopPct >= 0 ? 'warn' : 'bad' },
+    { metric:'Ad Spend/Rev',   yours: curr.netRevenue>0 ? fmtP((ad/curr.netRevenue)*100) : '—', benchmark:'15–25%', status: curr.netRevenue>0 && (ad/curr.netRevenue)<=0.25 ? 'good' : (ad/curr.netRevenue)<=0.35 ? 'warn' : 'bad' },
+    { metric:'ROAS',           yours: metaData?.roas!=null ? `${metaData.roas.toFixed(2)}×` : '—', benchmark:'2.5–4×', status: metaData?.roas>=2.5 ? 'good' : metaData?.roas>=1.5 ? 'warn' : 'bad' },
+    { metric:'AOV',            yours: fmt(curr.aov,2),         benchmark:'$45–90',  status: curr.aov>=45 ? 'good' : curr.aov>=30 ? 'warn' : 'bad' },
+    { metric:'Refund Rate',    yours: curr.grossRevenue>0 ? fmtP((curr.refunds/curr.grossRevenue)*100) : '0%', benchmark:'<3%', status: curr.grossRevenue>0 && (curr.refunds/curr.grossRevenue)<=0.03 ? 'good' : (curr.refunds/curr.grossRevenue)<=0.06 ? 'warn' : 'bad' },
+  ]
+  const statusColor = { good:'var(--green)', warn:'var(--yellow)', bad:'var(--red)' }
+  const statusBg    = { good:'#f0faf5', warn:'#fffbeb', bad:'#fff5f5' }
+  const statusLabel = { good:'✓ On Track', warn:'~ Watch', bad:'✗ Off Track' }
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+
+      {/* ── Alerts ── */}
+      <div className="card">
+        <SectionHead title="Smart Alerts" sub={`${alerts.length} item${alerts.length===1?'':'s'} flagged this period`}/>
+        <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:14}}>
+          {alerts.length === 0 && (
+            <div className="insight-card good">
+              <span className="insight-icon">🎉</span>
+              <div className="insight-body">
+                <div className="insight-title" style={{color:'var(--green)'}}>All Clear</div>
+                <div className="insight-desc">No issues detected this period. Business looks healthy!</div>
+              </div>
+            </div>
+          )}
+          {alerts.map((a,i) => (
+            <div key={i} className={`insight-card ${a.type}`}>
+              <span className="insight-icon">{a.icon}</span>
+              <div className="insight-body">
+                <div className="insight-title">{a.title}</div>
+                <div className="insight-desc">{a.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid-2">
+        {/* ── Break-even ── */}
+        <div className="card">
+          <SectionHead title="Break-Even Analysis" sub="Weekly revenue needed to cover all costs"/>
+          <div style={{marginTop:16,display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+              <div>
+                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:2}}>Break-Even / Week</div>
+                <div style={{fontSize:28,fontWeight:800,color:'var(--brand)'}}>{fmt(breakevenRevenue,0)}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:2}}>Orders Needed</div>
+                <div style={{fontSize:28,fontWeight:800,color:'var(--brand)'}}>{fmtN(breakevenOrders)}</div>
+              </div>
+            </div>
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:6}}>
+                <span style={{color:'var(--text-dim)'}}>Revenue vs break-even</span>
+                <span style={{fontWeight:700,color:isPastBreakeven?'var(--green)':'var(--red)'}}>{fmtP(Math.min(revenueProgress,100))}</span>
+              </div>
+              <div className="breakeven-bar-track">
+                <div className="breakeven-bar-fill" style={{
+                  width:`${Math.min(revenueProgress,100)}%`,
+                  background: isPastBreakeven ? 'var(--green)' : 'linear-gradient(90deg,var(--red),var(--yellow))',
+                }}/>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--text-muted)',marginTop:4}}>
+                <span>$0</span><span>B/E: {fmt(breakevenRevenue,0)}</span>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              {[
+                {l:'Fixed / Week',        v:fmt(weeklyFixed,2),          note:`$${totalMonthlyFixed}/mo`},
+                {l:'Variable Cost %',     v:fmtP(varCostRatio*100),      note:'COGS + fees + postage'},
+                {l:'Contribution Margin', v:fmtP((1-varCostRatio)*100),  note:'Per $ of revenue'},
+                {l:'Current Revenue',     v:fmt(curr.netRevenue,2),       note:isPastBreakeven?'✓ Above B/E':'✗ Below B/E'},
+              ].map(({l,v,note})=>(
+                <div key={l} style={{background:'var(--bg)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.6,marginBottom:2}}>{l}</div>
+                  <div style={{fontSize:15,fontWeight:800,color:'var(--text)'}}>{v}</div>
+                  <div style={{fontSize:10,color:'var(--text-dim)',marginTop:1}}>{note}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Customer Economics ── */}
+        <div className="card">
+          <SectionHead title="Customer Economics" sub="LTV, CAC, and acquisition efficiency"/>
+          <div style={{marginTop:16,display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              {[
+                {l:'Avg Order Value',  v:fmt(curr.aov,2),                          note:'Net rev ÷ orders',          c:'var(--brand)'},
+                {l:'Est. LTV (1yr)',   v:estimatedLTV1yr>0?fmt(estimatedLTV1yr,0):'—', note:'AOV × 1.8 orders × margin', c:'var(--green)'},
+                {l:'CAC (from Ads)',   v:cac?fmt(cac,2):'—',                        note:'Ad spend ÷ new orders',     c:cac&&cac<curr.aov?'var(--green)':'var(--red)'},
+                {l:'LTV:CAC',          v:ltvcac?`${ltvcac.toFixed(1)}×`:'—',        note:'3× = DTC gold standard',    c:ltvcac&&ltvcac>=3?'var(--green)':ltvcac&&ltvcac>=1.5?'var(--yellow)':'var(--red)'},
+              ].map(({l,v,note,c})=>(
+                <div key={l} style={{background:'var(--bg)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.6,marginBottom:2}}>{l}</div>
+                  <div style={{fontSize:15,fontWeight:800,color:c||'var(--text)'}}>{v}</div>
+                  <div style={{fontSize:10,color:'var(--text-dim)',marginTop:1}}>{note}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,fontWeight:700,marginBottom:8,color:'var(--text-dim)',textTransform:'uppercase',letterSpacing:0.8}}>DTC Skincare Benchmarks</div>
+              {[
+                {l:'Repurchase Rate (90d)',  yours:'Est. 35%',                    benchmark:'25–45%'},
+                {l:'Orders/Customer/Year',   yours:`Est. ${avgOrdersPerYear}×`,   benchmark:'1.5–2.5×'},
+                {l:'Ideal LTV:CAC',          yours:ltvcac?`${ltvcac.toFixed(1)}×`:'N/A', benchmark:'3:1+'},
+              ].map(({l,yours,benchmark})=>(
+                <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+                  <span style={{color:'var(--text-dim)'}}>{l}</span>
+                  <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                    <span style={{color:'var(--text)',fontWeight:600}}>{yours}</span>
+                    <span style={{fontSize:10,color:'var(--text-muted)'}}>vs {benchmark}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',lineHeight:1.5}}>
+              * LTV estimates use DTC skincare industry benchmarks. Connect a CRM for actual cohort data.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── DTC Benchmark Scorecard ── */}
+      <div className="card">
+        <SectionHead title="DTC Benchmark Scorecard" sub="How Hide Tallow Co. compares to healthy DTC skincare brands"/>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginTop:14}}>
+          {benchmarks.map(({metric,yours,benchmark,status})=>(
+            <div key={metric} style={{
+              background: statusBg[status],
+              border:`1px solid ${status==='good'?'#a8dfc0':status==='warn'?'#f0d080':'#f5b8b8'}`,
+              borderRadius:10,padding:'14px 16px',
+            }}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                <div style={{fontSize:11,color:'var(--text-dim)',fontWeight:600}}>{metric}</div>
+                <span style={{fontSize:10,fontWeight:700,color:statusColor[status],background:'white',padding:'2px 6px',borderRadius:4,border:`1px solid ${status==='good'?'#a8dfc0':status==='warn'?'#f0d080':'#f5b8b8'}`}}>
+                  {statusLabel[status]}
+                </span>
+              </div>
+              <div style={{fontSize:22,fontWeight:800,color:statusColor[status],marginBottom:3}}>{yours}</div>
+              <div style={{fontSize:11,color:'var(--text-muted)'}}>Benchmark: {benchmark}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Growth Lever Simulator ── */}
+      <div className="card">
+        <SectionHead title="Growth Lever Simulator" sub="What a 10% improvement in each lever adds to your bottom line this period"/>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginTop:14}}>
+          {[
+            { lever:'↑ AOV +10%',           impact: curr.orderCount * (curr.aov * 0.1) * (grossMarginPct/100),  desc:`Add an order bump or bundle. Every +$1 AOV = ${fmt(curr.orderCount*1*(grossMarginPct/100),0)} more gross profit.`, icon:'🛒' },
+            { lever:'↓ Ad Spend -10%',       impact: ad * 0.1,                                                    desc:'Better creative or tighter audiences — saved spend drops straight to the bottom line.',                        icon:'📣' },
+            { lever:'↑ Repurchase +10%',     impact: curr.orderCount * 0.1 * curr.aov * (grossMarginPct/100),    desc:'An email/SMS sequence converting 10% more customers to second purchases.',                                     icon:'🔄' },
+            { lever:'↓ COGS -5%',            impact: curr.totalCOGS * 0.05,                                       desc:'Renegotiate supplier pricing or increase batch sizes for better unit economics.',                             icon:'🏭' },
+            { lever:'↑ Conv. Rate +10%',     impact: curr.orderCount * 0.1 * curr.aov * (grossMarginPct/100),    desc:'Improve landing pages, social proof, or a stronger money-back guarantee.',                                    icon:'🎯' },
+            { lever:'↓ Refunds -50%',        impact: curr.refunds * 0.5,                                          desc:'Better product education and packaging to reduce returns and protect revenue.',                               icon:'↩️' },
+          ].map(({lever,impact,desc,icon})=>(
+            <div key={lever} style={{background:'var(--bg)',borderRadius:10,padding:'14px 16px',border:'1px solid var(--border)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <span style={{fontSize:18}}>{icon}</span>
+                <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{lever}</div>
+              </div>
+              <div style={{fontSize:20,fontWeight:800,color:'var(--green)',marginBottom:6}}>
+                {impact > 0 ? `+${fmt(impact,0)}` : fmt(impact,0)}
+              </div>
+              <div style={{fontSize:11,color:'var(--text-dim)',lineHeight:1.5}}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Claude Q&A ── */}
+      <ClaudeQA financialData={{shopify:{current:curr},meta:metaData}}/>
+    </div>
+  )
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [shopify,     setShopify]   = useState(null)
@@ -1264,11 +1491,12 @@ export default function App() {
       {/* ── Content ── */}
       {curr && (
         <main className="main">
-          {tab==='overview' && <OverviewTab curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed} shopifyData={shopify}/>}
-          {tab==='pnl'      && <PnLTab      curr={curr} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed} rangeLabel={rangeLabel}/>}
-          {tab==='orders'   && <OrdersTab   enrichedOrders={curr.enrichedOrders}/>}
-          {tab==='products' && <ProductsTab skuBreakdown={curr.skuBreakdown}/>}
-          {tab==='ads'      && <AdsTab      metaData={meta} curr={curr}/>}
+          {tab==='overview'  && <OverviewTab  curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed} shopifyData={shopify}/>}
+          {tab==='pnl'       && <PnLTab       curr={curr} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed} rangeLabel={rangeLabel}/>}
+          {tab==='orders'    && <OrdersTab    enrichedOrders={curr.enrichedOrders}/>}
+          {tab==='products'  && <ProductsTab  skuBreakdown={curr.skuBreakdown}/>}
+          {tab==='ads'       && <AdsTab       metaData={meta} curr={curr}/>}
+          {tab==='insights'  && <InsightsTab  curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed}/>}
         </main>
       )}
 
