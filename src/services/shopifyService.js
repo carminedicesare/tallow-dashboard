@@ -322,6 +322,60 @@ function getPriorRange(preset) {
   }
 }
 
+// ─── Inventory Value Fetch ────────────────────────────────────────────────────
+// Calls /api/inventory, matches SKUs to COGS, returns total value at cost
+// plus a per-SKU breakdown for the Balance Sheet.
+
+export async function fetchInventoryValue() {
+  try {
+    const res = await fetch('/api/inventory')
+    if (!res.ok) throw new Error(`Inventory API ${res.status}`)
+    const data = await res.json()
+    const variants = data.variants || []
+
+    let totalValue = 0
+    const breakdown = []
+
+    for (const v of variants) {
+      const sku       = v.sku || ''
+      const cogsEntry = COGS[sku]
+      const unitCost  = cogsEntry?.unitCost ?? null
+      const available = Math.max(0, v.available || 0)
+
+      if (unitCost != null && available > 0) {
+        const value = available * unitCost
+        totalValue += value
+        breakdown.push({
+          sku,
+          name:      cogsEntry?.name || v.productTitle || sku,
+          category:  cogsEntry?.category || 'Other',
+          available,
+          unitCost,
+          value,
+        })
+      } else if (available > 0) {
+        // SKU exists in Shopify but not in cogsConfig — flag it
+        breakdown.push({
+          sku,
+          name:      v.productTitle ? `${v.productTitle} — ${v.title}` : sku,
+          category:  'Unknown',
+          available,
+          unitCost:  null,
+          value:     0,
+        })
+      }
+    }
+
+    // Sort by value descending
+    breakdown.sort((a, b) => b.value - a.value)
+
+    return { totalValue, breakdown, error: null }
+  } catch (err) {
+    console.warn('fetchInventoryValue failed:', err.message)
+    return { totalValue: 0, breakdown: [], error: err.message }
+  }
+}
+
 function getMockOrders() {
   // total_price includes shipping_lines price (as Shopify does)
   // shipping_lines[].price = what customer paid, discounted_price = carrier rate (3PL cost)

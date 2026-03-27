@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getShopifyData } from './services/shopifyService.js'
+import { getShopifyData, fetchInventoryValue } from './services/shopifyService.js'
 import { getMetaData }    from './services/metaService.js'
 import { askClaude }      from './services/claudeService.js'
 import { MONTHLY_FIXED, COGS }  from './cogsConfig.js'
@@ -819,7 +819,7 @@ const INV_KEY = 'tallow_inventory_v1'
 function loadInv() { try { return JSON.parse(localStorage.getItem(INV_KEY)||'null') } catch { return null } }
 function saveInv(v) { try { localStorage.setItem(INV_KEY, JSON.stringify(v)) } catch {} }
 
-function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, periodDays }) {
+function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, periodDays, inventory }) {
   if (!curr) return null
   const ad  = metaData?.spend||0
   const nop = curr.netProfit - ad - weeklyFixed
@@ -831,13 +831,15 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, pe
 
   // Balance sheet inputs
   const cashData = (() => { try { return JSON.parse(localStorage.getItem(CASH_KEY)||'null') } catch { return null } })()
+  // Inventory: use live Shopify data if available, fall back to manual localStorage entry
+  const liveInvValue  = inventory?.totalValue ?? null
   const [invOnHand, setInvOnHand] = useState(() => loadInv()?.value ?? '')
   const handleInvSave = (val) => { setInvOnHand(val); saveInv({ value: parseFloat(val)||0 }) }
+  const invValue      = liveInvValue !== null ? liveInvValue : (parseFloat(invOnHand) || 0)
+  const invIsLive     = liveInvValue !== null
 
   const totalCash    = cashData ? (cashData.checking||0) + (cashData.savings||0) : 0
   const totalCC      = cashData ? (cashData.cc1||0) + (cashData.cc2||0) : 0
-  const invValue     = parseFloat(invOnHand) || 0
-  const arValue      = curr.netRevenue || 0  // proxy: period revenue as receivables/collected
   const totalAssets  = totalCash + invValue
   const totalLiab    = totalCC
   const equity       = totalAssets - totalLiab
@@ -1021,20 +1023,40 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, pe
               <LR label="Cash — Savings"      value={cashData&&cashData.savings>0?fmt(cashData.savings,2):'$0.00'} color="var(--green)" indent/>
               <LR label="Total Cash &amp; Equivalents" value={fmt(totalCash,2)} bold color={totalCash>0?'var(--green)':'var(--text-dim)'}/>
 
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
-                <div>
-                  <div style={{fontSize:13,paddingLeft:16}}>Inventory at Cost</div>
-                  <div style={{fontSize:11,color:'var(--text-dim)',paddingLeft:16}}>Enter current on-hand value</div>
+              {/* Inventory row — live from Shopify if available, else manual */}
+              {invIsLive ? (
+                <div style={{padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{paddingLeft:16}}>
+                      <div style={{fontSize:13}}>Inventory at Cost <span style={{fontSize:10,color:'var(--green)',fontWeight:700,marginLeft:4}}>● LIVE</span></div>
+                      <div style={{fontSize:11,color:'var(--text-dim)'}}>Pulled from Shopify · {inventory?.breakdown?.length || 0} SKUs</div>
+                    </div>
+                    <span style={{fontSize:14,fontWeight:600,color:'var(--green)'}}>{fmt(invValue,2)}</span>
+                  </div>
+                  {/* SKU mini-breakdown */}
+                  {inventory?.breakdown?.filter(s=>s.value>0).slice(0,5).map(s=>(
+                    <div key={s.sku} style={{display:'flex',justifyContent:'space-between',padding:'3px 0 3px 28px',fontSize:11,color:'var(--text-dim)'}}>
+                      <span>{s.name}</span>
+                      <span>{s.available} × ${s.unitCost} = {fmt(s.value,2)}</span>
+                    </div>
+                  ))}
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                  <span style={{fontSize:12,color:'var(--text-dim)'}}>$</span>
-                  <input type="number" value={invOnHand}
-                    onChange={e=>handleInvSave(e.target.value)}
-                    placeholder="0.00"
-                    style={{width:90,padding:'4px 6px',border:'1px solid var(--border)',borderRadius:5,
-                      fontSize:13,textAlign:'right',background:'var(--bg)',color:'var(--text)'}}/>
+              ) : (
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                  <div>
+                    <div style={{fontSize:13,paddingLeft:16}}>Inventory at Cost</div>
+                    <div style={{fontSize:11,color:'var(--text-dim)',paddingLeft:16}}>Manual fallback — Shopify inventory unavailable</div>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontSize:12,color:'var(--text-dim)'}}>$</span>
+                    <input type="number" value={invOnHand}
+                      onChange={e=>handleInvSave(e.target.value)}
+                      placeholder="0.00"
+                      style={{width:90,padding:'4px 6px',border:'1px solid var(--border)',borderRadius:5,
+                        fontSize:13,textAlign:'right',background:'var(--bg)',color:'var(--text)'}}/>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <LR label="Total Current Assets"   value={fmt(totalAssets,2)} bold border color="var(--green)"/>
 
@@ -1056,7 +1078,7 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, pe
 
             {!cashData && (
               <div style={{marginTop:12,padding:10,background:'#fff8e7',borderRadius:6,border:'1px solid var(--yellow)',fontSize:12,color:'#7a5c00'}}>
-                💡 Enter cash &amp; credit card balances in the <strong>Overview → Cash &amp; Liquidity</strong> section to populate this balance sheet automatically.
+                💡 Enter cash &amp; credit card balances in the <strong>Overview → Cash &amp; Liquidity</strong> section to complete this balance sheet. Inventory is pulled live from Shopify.
               </div>
             )}
           </div>
@@ -1956,6 +1978,7 @@ export default function App() {
   const [showCustom,  setShowCustom] = useState(false)
   const [customStart, setCustomStart] = useState('')
   const [customEnd,   setCustomEnd]   = useState('')
+  const [inventory,   setInventory]  = useState(null)  // { totalValue, breakdown, error }
 
   const ck  = p => `${CACHE_KEY}_${p}`
   const rdc = p => { try { const r=JSON.parse(localStorage.getItem(ck(p))||'null'); return r&&Date.now()-r.ts<CACHE_TTL_MS?r:null } catch{return null} }
@@ -1987,6 +2010,11 @@ export default function App() {
   }
 
   useEffect(() => { load(false, preset) }, [preset])
+
+  // Fetch inventory once on mount (not tied to date range — it's a snapshot)
+  useEffect(() => {
+    fetchInventoryValue().then(inv => setInventory(inv))
+  }, [])
 
   const curr  = shopify?.current
   const prev  = shopify?.prior
@@ -2080,7 +2108,7 @@ export default function App() {
       {curr && (
         <main className="main">
           {tab==='overview'  && <OverviewTab  curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} periodFixed={periodFixed} totalMonthlyFixed={totalMonthlyFixed} shopifyData={shopify}/>}
-          {tab==='pnl'       && <PnLTab       curr={curr} metaData={meta} weeklyFixed={periodFixed}  totalMonthlyFixed={totalMonthlyFixed} rangeLabel={rangeLabel} periodDays={periodDaysTop}/>}
+          {tab==='pnl'       && <PnLTab       curr={curr} metaData={meta} weeklyFixed={periodFixed}  totalMonthlyFixed={totalMonthlyFixed} rangeLabel={rangeLabel} periodDays={periodDaysTop} inventory={inventory}/>}
           {tab==='orders'    && <OrdersTab    enrichedOrders={curr.enrichedOrders}/>}
           {tab==='products'  && <ProductsTab  skuBreakdown={curr.skuBreakdown}/>}
           {tab==='ads'       && <AdsTab       metaData={meta} curr={curr}/>}
