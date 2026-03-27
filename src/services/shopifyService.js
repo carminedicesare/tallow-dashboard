@@ -280,9 +280,13 @@ async function fetchOrders(start, end) {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export async function getShopifyData(preset = 'this_week') {
-  const range     = getDateRange(preset)
-  const prevRange = getPriorRange(preset)
+export async function getShopifyData(preset = 'this_week', customRange = null) {
+  const range     = customRange || getDateRange(preset)
+  const prevRange = customRange ? {
+    start: new Date(new Date(customRange.start).getTime() - (customRange.end - customRange.start) - 86400000),
+    end:   new Date(customRange.start.getTime() - 86400000),
+    label: 'Prior Period'
+  } : getPriorRange(preset)
 
   try {
     const [orders, priorOrders] = await Promise.all([

@@ -1087,24 +1087,38 @@ export default function App() {
   const [error,       setError]     = useState(null)
   const [tab,         setTab]       = useState('overview')
   const [preset,      setPreset]    = useState('this_week')
+  const [showCustom,  setShowCustom] = useState(false)
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd,   setCustomEnd]   = useState('')
 
   const ck  = p => `${CACHE_KEY}_${p}`
   const rdc = p => { try { const r=JSON.parse(localStorage.getItem(ck(p))||'null'); return r&&Date.now()-r.ts<CACHE_TTL_MS?r:null } catch{return null} }
   const wrc = (p,s,m) => { try { localStorage.setItem(ck(p),JSON.stringify({ts:Date.now(),shopify:s,meta:m})) } catch{} }
 
-  const load = useCallback(async (force=false, p=preset) => {
+  const load = useCallback(async (force=false, p=preset, customRange=null) => {
     setStatus('loading'); setError(null)
-    if (!force) {
-      const c = rdc(p)
+    const cacheKey = customRange ? `custom_${customRange.start.toISOString().split('T')[0]}_${customRange.end.toISOString().split('T')[0]}` : p
+    if (!force && !customRange) {
+      const c = rdc(cacheKey)
       if (c) { setShopify(c.shopify); setMeta(c.meta); setLastSync(new Date(c.ts)); setStatus('done'); return }
     }
     try {
-      const s = await getShopifyData(p)
+      const s = await getShopifyData(p, customRange)
       const m = await getMetaData(s.current?.netRevenue||0, s.current?.range)
       setShopify(s); setMeta(m); setLastSync(new Date())
-      wrc(p,s,m); setStatus('done')
+      if (!customRange) wrc(cacheKey,s,m)
+      setStatus('done')
     } catch(e) { setError(e.message); setStatus('error') }
   }, [preset])
+
+  const applyCustomRange = () => {
+    if (!customStart || !customEnd) return
+    const start = new Date(customStart + 'T00:00:00')
+    const end   = new Date(customEnd   + 'T23:59:59')
+    if (start > end) return
+    setShowCustom(false)
+    load(true, preset, { start, end, label: `${customStart} → ${customEnd}` })
+  }
 
   useEffect(() => { load(false, preset) }, [preset])
 
@@ -1136,16 +1150,31 @@ export default function App() {
       {/* ── Preset bar ── */}
       <div className="preset-bar">
         {TIME_PRESETS.map(p=>(
-          <button key={p.id} className={`preset-btn${preset===p.id?' active':''}`}
-            onClick={()=>setPreset(p.id)} disabled={status==='loading'}>
+          <button key={p.id} className={`preset-btn${preset===p.id&&!showCustom?' active':''}`}
+            onClick={()=>{setShowCustom(false);setPreset(p.id)}} disabled={status==='loading'}>
             {p.label}
           </button>
         ))}
-        {curr && <span className="range-label">{rangeLabel}</span>}
+        <button className={`preset-btn${showCustom?' active':''}`} onClick={()=>setShowCustom(v=>!v)} disabled={status==='loading'}>
+          Custom
+        </button>
+        {curr && !showCustom && <span className="range-label">{rangeLabel}</span>}
       </div>
 
-      {/* ── Tab bar ── */}
-      <div className="tab-bar">
+      {/* ── Custom date picker ── */}
+      {showCustom && (
+        <div className="custom-date-bar">
+          <span className="custom-date-label">From</span>
+          <input type="date" className="date-input" value={customStart} onChange={e=>setCustomStart(e.target.value)} max={customEnd||undefined}/>
+          <span className="custom-date-label">To</span>
+          <input type="date" className="date-input" value={customEnd} onChange={e=>setCustomEnd(e.target.value)} min={customStart||undefined}/>
+          <button className="btn-sm" onClick={applyCustomRange} disabled={!customStart||!customEnd||status==='loading'}>Apply</button>
+          <button className="btn-sm" onClick={()=>setShowCustom(false)}>✕</button>
+        </div>
+      )}
+
+      {/* ── Tab bar (desktop) ── */}
+      <div className="tab-bar tab-bar-desktop">
         {TABS.map(t=>(
           <button key={t.id} className={`tab-btn${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
             <span className="tab-icon">{t.icon}</span> {t.label}
@@ -1181,9 +1210,19 @@ export default function App() {
         </main>
       )}
 
-      <footer className="footer">
+      <footer className="footer footer-desktop">
         Hide Tallow · Financial Command Center · {rangeLabel} {isMock&&'· ⚠ Sample Data'}
       </footer>
+
+      {/* ── Mobile bottom nav ── */}
+      <nav className="bottom-nav">
+        {TABS.map(t=>(
+          <button key={t.id} className={`bottom-nav-btn${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
+            <span className="bottom-nav-icon">{t.icon}</span>
+            <span className="bottom-nav-label">{t.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }

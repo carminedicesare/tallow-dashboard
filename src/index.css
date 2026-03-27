@@ -273,6 +273,25 @@ html,body,#root{height:100%;background:var(--bg);color:var(--text);font-family:v
   100%{transform:scaleX(1);transform-origin:left;opacity:0}
 }
 
+/* ─── Custom date bar ────────────────────────────────────────────────────────── */
+.custom-date-bar{
+  display:flex;align-items:center;gap:8px;padding:8px 28px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.custom-date-label{font-size:11px;color:var(--text-dim);white-space:nowrap}
+.date-input{
+  background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);border-radius:6px;padding:5px 10px;
+  font-size:12px;font-family:var(--font);outline:none;
+  transition:border-color 0.15s;cursor:pointer;
+  color-scheme:dark;
+}
+.date-input:focus{border-color:var(--purple)}
+
+/* ─── Bottom nav (mobile only) ───────────────────────────────────────────────── */
+.bottom-nav{display:none}
+
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
 @media(max-width:1200px){
   .kpi-grid-4{grid-template-columns:repeat(2,1fr)}
@@ -295,6 +314,34 @@ html,body,#root{height:100%;background:var(--bg);color:var(--text);font-family:v
 @media(max-width:480px){
   html,body,#root{font-size:13px}
 
+  /* Hide desktop tab bar, show bottom nav */
+  .tab-bar-desktop{display:none}
+  .footer-desktop{display:none}
+
+  /* Bottom nav */
+  .bottom-nav{
+    display:flex;
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--surface);border-top:1px solid var(--border2);
+    z-index:50;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .bottom-nav-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    gap:3px;padding:8px 4px;background:transparent;border:none;
+    color:var(--text-dim);cursor:pointer;transition:color 0.15s;
+    font-family:var(--font);
+  }
+  .bottom-nav-btn.active{color:var(--purple-light)}
+  .bottom-nav-btn.active .bottom-nav-icon{
+    background:var(--purple-dim);border-radius:8px;
+  }
+  .bottom-nav-icon{font-size:18px;padding:4px 12px;transition:background 0.15s}
+  .bottom-nav-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+
+  /* Add padding so content doesn't hide behind bottom nav */
+  .main{padding-bottom:80px}
+
   /* Header */
   .header{padding:10px 14px;gap:8px}
   .logo{font-size:16px}
@@ -302,6 +349,10 @@ html,body,#root{height:100%;background:var(--bg);color:var(--text);font-family:v
   .sync-info span:not(.sync-dot){display:none}
   .mock-badge{display:none}
   .btn-sm{padding:5px 10px;font-size:11px}
+
+  /* Custom date bar compact */
+  .custom-date-bar{padding:8px 10px;gap:6px}
+  .date-input{padding:5px 8px;font-size:11px}
 
   /* Preset bar — horizontal scroll, compact */
   .preset-bar{
