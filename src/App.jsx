@@ -565,7 +565,18 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, sho
       </div>
 
       {/* ── Row 3: Cash & Liquidity ─────────────────────────────────── */}
-      <CashLiquidity weeklyBurn={curr.totalCOGS + (curr.totalFees||0) + (curr.postageCost||0) + weeklyFixed + (metaData?.spend||0)}/>
+      {(() => {
+        // Figure out how many weeks are in the current period so burn rate is always weekly
+        const rangeStart = curr.range?.start ? new Date(curr.range.start) : null
+        const rangeEnd   = curr.range?.end   ? new Date(curr.range.end)   : null
+        const periodDays = rangeStart && rangeEnd
+          ? Math.max(1, Math.round((rangeEnd - rangeStart) / 86400000))
+          : 7
+        const periodWeeks = periodDays / 7
+        const totalPeriodCosts = curr.totalCOGS + (curr.totalFees||0) + (curr.postageCost||0) + weeklyFixed * periodWeeks + (metaData?.spend||0)
+        const weeklyBurn = totalPeriodCosts / periodWeeks
+        return <CashLiquidity weeklyBurn={weeklyBurn}/>
+      })()}
 
       {/* ── Row 4: Charts ───────────────────────────────────────────── */}
       <div className="grid-2-1">
