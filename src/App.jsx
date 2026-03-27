@@ -21,7 +21,7 @@ const TIME_PRESETS = [
 
 const TABS = [
   { id: 'overview',  label: 'Overview',   icon: '◈' },
-  { id: 'pnl',       label: 'P&L',        icon: '∑' },
+  { id: 'pnl',       label: 'Financials', icon: '∑' },
   { id: 'orders',    label: 'Orders',     icon: '≡' },
   { id: 'products',  label: 'Products',   icon: '◫' },
   { id: 'ads',       label: 'Ads',        icon: '◎' },
@@ -814,26 +814,58 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMont
   )
 }
 
-// ─── P&L TAB ──────────────────────────────────────────────────────────────────
+// ─── FINANCIALS TAB (3-Statement) ─────────────────────────────────────────────
+const INV_KEY = 'tallow_inventory_v1'
+function loadInv() { try { return JSON.parse(localStorage.getItem(INV_KEY)||'null') } catch { return null } }
+function saveInv(v) { try { localStorage.setItem(INV_KEY, JSON.stringify(v)) } catch {} }
+
 function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, periodDays }) {
   if (!curr) return null
   const ad  = metaData?.spend||0
-  // weeklyFixed here is already period-scaled (periodFixed passed as weeklyFixed from parent)
   const nop = curr.netProfit - ad - weeklyFixed
   const nopPct = curr.netRevenue>0 ? (nop/curr.netRevenue)*100 : 0
   const periodWeeks = (periodDays||7) / 7
 
+  // Sub-tab state
+  const [fsTab, setFsTab] = useState('income') // income | balance | cashflow
+
+  // Balance sheet inputs
+  const cashData = (() => { try { return JSON.parse(localStorage.getItem(CASH_KEY)||'null') } catch { return null } })()
+  const [invOnHand, setInvOnHand] = useState(() => loadInv()?.value ?? '')
+  const handleInvSave = (val) => { setInvOnHand(val); saveInv({ value: parseFloat(val)||0 }) }
+
+  const totalCash    = cashData ? (cashData.checking||0) + (cashData.savings||0) : 0
+  const totalCC      = cashData ? (cashData.cc1||0) + (cashData.cc2||0) : 0
+  const invValue     = parseFloat(invOnHand) || 0
+  const arValue      = curr.netRevenue || 0  // proxy: period revenue as receivables/collected
+  const totalAssets  = totalCash + invValue
+  const totalLiab    = totalCC
+  const equity       = totalAssets - totalLiab
+
+  // Cash Flow Statement
+  const cfInv = (() => { try { return JSON.parse(localStorage.getItem(CF_KEY)||'null') } catch { return null } })()
+  const invSpendCF   = cfInv?.invPurchased ? parseFloat(cfInv.invPurchased)||0 : 0
+  const cashFromOps  = curr.netRevenue - (curr.totalFees||0) - (curr.postageCost||0) - ad - weeklyFixed
+  const cashFromInv  = -invSpendCF
+  const netCashFlow  = cashFromOps + cashFromInv
+
+  const subTabs = [
+    { id:'income',    label:'Income Statement' },
+    { id:'balance',   label:'Balance Sheet' },
+    { id:'cashflow',  label:'Cash Flow' },
+  ]
+
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
 
-      {/* Top 5-number summary */}
+      {/* Top KPI strip */}
       <div className="kpi-grid-5">
         {[
-          { l:'Gross Revenue',      v:fmt(curr.grossRevenue,2),  c:'var(--green)' },
-          { l:'Net Revenue',        v:fmt(curr.netRevenue,2),    c:'var(--green)' },
-          { l:'Gross Profit',       v:fmt(curr.grossProfit,2),   c:curr.grossProfit>=0?'var(--green)':'var(--red)' },
-          { l:'Net Op. Profit',     v:fmt(nop,2),                c:nop>=0?'var(--green)':'var(--red)' },
-          { l:'Net Op. Margin',     v:fmtP(nopPct),              c:nopPct>=20?'var(--green)':nopPct>=0?'var(--yellow)':'var(--red)' },
+          { l:'Net Revenue',        v:fmt(curr.netRevenue,2),   c:'var(--green)' },
+          { l:'Gross Profit',       v:fmt(curr.grossProfit,2),  c:curr.grossProfit>=0?'var(--green)':'var(--red)' },
+          { l:'Net Op. Profit',     v:fmt(nop,2),               c:nop>=0?'var(--green)':'var(--red)' },
+          { l:'Net Op. Margin',     v:fmtP(nopPct),             c:nopPct>=20?'var(--green)':nopPct>=0?'var(--yellow)':'var(--red)' },
+          { l:'Net Cash Flow',      v:fmt(netCashFlow,2),       c:netCashFlow>=0?'var(--green)':'var(--red)' },
         ].map(({l,v,c})=>(
           <div key={l} className="card" style={{textAlign:'center',padding:16}}>
             <div className="kcard-label">{l}</div>
@@ -842,132 +874,377 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, pe
         ))}
       </div>
 
-      <div className="grid-2">
-        {/* Full income statement */}
-        <div className="card">
-          <SectionHead title={`Income Statement — ${rangeLabel}`}/>
-          <div style={{marginTop:12}}>
-            <LR section label="Revenue"/>
-            <LR label="Product Revenue"      value={fmt((curr.grossRevenue||0)-(curr.shippingCollected||0),2)} color="var(--green)"/>
-            <LR label="Shipping Collected"   value={curr.shippingCollected>0?`+${fmt(curr.shippingCollected,2)}`:'$0.00'} color={curr.shippingCollected>0?'var(--green)':'var(--text-dim)'} indent/>
-            <LR label="Gross Revenue"        value={fmt(curr.grossRevenue,2)} bold/>
-            <LR label="Refunds"              value={curr.refunds>0?`−${fmt(curr.refunds,2)}`:'$0.00'} color={curr.refunds>0?'var(--red)':'var(--text-dim)'} indent/>
-            <LR label="Discounts"            value={curr.discounts>0?`−${fmt(curr.discounts,2)}`:'$0.00'} color={curr.discounts>0?'var(--red)':'var(--text-dim)'} indent/>
-            <LR label="Net Revenue"          value={fmt(curr.netRevenue,2)} bold border color="var(--green)"/>
+      {/* Sub-tab bar */}
+      <div style={{display:'flex',gap:4,background:'var(--card-bg2)',padding:4,borderRadius:10,alignSelf:'flex-start',flexWrap:'wrap'}}>
+        {subTabs.map(t=>(
+          <button key={t.id} onClick={()=>setFsTab(t.id)}
+            style={{padding:'7px 18px',borderRadius:7,border:'none',cursor:'pointer',fontSize:13,fontWeight:600,
+              background:fsTab===t.id?'var(--surface)':'transparent',
+              color:fsTab===t.id?'#fff':'var(--text-dim)',
+              transition:'all 0.15s'}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-            <LR section label="Cost of Goods Sold"/>
-            <LR label="Total COGS"           value={`−${fmt(curr.totalCOGS,2)}`} color="var(--red)"/>
-            <LR label="Gross Profit"         value={fmt(curr.grossProfit,2)} bold border color={curr.grossProfit>=0?'var(--green)':'var(--red)'}/>
-            <LR label="Gross Margin"         value={fmtP(curr.grossMarginPct)} indent/>
-
-            <LR section label="Variable Operating Expenses"/>
-            <LR label="3PL Pick Fees"        value={`−${fmt(curr.feeBreakdown?.threepl,2)}`}    color="var(--red)" indent/>
-            <LR label="Packaging"            value={`−${fmt(curr.feeBreakdown?.packaging,2)}`}  color="var(--red)" indent/>
-            <LR label="Shopify Processing"   value={`−${fmt(curr.feeBreakdown?.processing,2)}`} color="var(--red)" indent/>
-            <LR label="Postage"              value={curr.postageCost>0?`−${fmt(curr.postageCost,2)}`:'—'} color={curr.postageCost>0?'var(--red)':'var(--text-dim)'} indent/>
-            <LR label="Total Variable Fees"  value={`−${fmt((curr.totalFees||0)+(curr.postageCost||0),2)}`} color="var(--red)" bold/>
-
-            <LR section label="Fixed &amp; Marketing Expenses"/>
-            <LR label="Ad Spend (Meta)"      value={ad>0?`−${fmt(ad,2)}`:'—'} color={ad>0?'var(--red)':'var(--text-dim)'} indent/>
-            <LR label="Fixed Overhead"       value={`−${fmt(weeklyFixed,2)}`} color="var(--red)" indent/>
-            <LR label={`  ($${totalMonthlyFixed}/mo × ${periodWeeks.toFixed(1)} wks)`} value="" indent/>
-
-            <LR label="Net Operating Profit" value={fmt(nop,2)} bold border color={nop>=0?'var(--green)':'var(--red)'}/>
-            <LR label="Net Operating Margin" value={fmtP(nopPct)} indent/>
-          </div>
-        </div>
-
-        <div style={{display:'flex',flexDirection:'column',gap:16}}>
-          {/* Margin bridge */}
+      {/* ── INCOME STATEMENT ── */}
+      {fsTab==='income' && (
+        <div className="grid-2">
           <div className="card">
-            <SectionHead title="Margin Bridge" sub="Gross → Net erosion"/>
-            <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:8}}>
-              {[
-                { label:'Gross Margin',   pct: curr.grossMarginPct,      color:'var(--green)' },
-                { label:'After Fees',     pct: curr.netRevenue>0?((curr.grossProfit-(curr.totalFees||0)-(curr.postageCost||0))/curr.netRevenue)*100:0, color:'var(--yellow)' },
-                { label:'After Ad Spend', pct: curr.netRevenue>0?((curr.grossProfit-(curr.totalFees||0)-(curr.postageCost||0)-ad)/curr.netRevenue)*100:0, color:'var(--orange)' },
-                { label:'Net Op. Margin', pct: nopPct,                   color: nopPct>=0?'var(--green)':'var(--red)' },
-              ].map(({label,pct,color})=>(
-                <div key={label}>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
-                    <span style={{color:'var(--text-dim)'}}>{label}</span>
-                    <span style={{color,fontWeight:700}}>{fmtP(pct)}</span>
-                  </div>
-                  <div style={{height:8,background:'var(--card-bg2)',borderRadius:4,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:`${clamp(pct,0,100)}%`,background:color,borderRadius:4,transition:'width 0.5s'}}/>
-                  </div>
-                </div>
-              ))}
+            <SectionHead title={`Income Statement — ${rangeLabel}`}/>
+            <div style={{marginTop:12}}>
+              <LR section label="Revenue"/>
+              <LR label="Product Revenue"      value={fmt((curr.grossRevenue||0)-(curr.shippingCollected||0),2)} color="var(--green)"/>
+              <LR label="Shipping Collected"   value={curr.shippingCollected>0?`+${fmt(curr.shippingCollected,2)}`:'$0.00'} color={curr.shippingCollected>0?'var(--green)':'var(--text-dim)'} indent/>
+              <LR label="Gross Revenue"        value={fmt(curr.grossRevenue,2)} bold/>
+              <LR label="Refunds"              value={curr.refunds>0?`−${fmt(curr.refunds,2)}`:'$0.00'} color={curr.refunds>0?'var(--red)':'var(--text-dim)'} indent/>
+              <LR label="Discounts"            value={curr.discounts>0?`−${fmt(curr.discounts,2)}`:'$0.00'} color={curr.discounts>0?'var(--red)':'var(--text-dim)'} indent/>
+              <LR label="Net Revenue"          value={fmt(curr.netRevenue,2)} bold border color="var(--green)"/>
+
+              <LR section label="Cost of Goods Sold"/>
+              <LR label="Total COGS"           value={`−${fmt(curr.totalCOGS,2)}`} color="var(--red)"/>
+              <LR label="Gross Profit"         value={fmt(curr.grossProfit,2)} bold border color={curr.grossProfit>=0?'var(--green)':'var(--red)'}/>
+              <LR label="Gross Margin"         value={fmtP(curr.grossMarginPct)} indent/>
+
+              <LR section label="Variable Operating Expenses"/>
+              <LR label="3PL Pick Fees"        value={`−${fmt(curr.feeBreakdown?.threepl,2)}`}    color="var(--red)" indent/>
+              <LR label="Packaging"            value={`−${fmt(curr.feeBreakdown?.packaging,2)}`}  color="var(--red)" indent/>
+              <LR label="Shopify Processing"   value={`−${fmt(curr.feeBreakdown?.processing,2)}`} color="var(--red)" indent/>
+              <LR label="Postage"              value={curr.postageCost>0?`−${fmt(curr.postageCost,2)}`:'—'} color={curr.postageCost>0?'var(--red)':'var(--text-dim)'} indent/>
+              <LR label="Total Variable Fees"  value={`−${fmt((curr.totalFees||0)+(curr.postageCost||0),2)}`} color="var(--red)" bold/>
+
+              <LR section label="Fixed &amp; Marketing Expenses"/>
+              <LR label="Ad Spend (Meta)"      value={ad>0?`−${fmt(ad,2)}`:'—'} color={ad>0?'var(--red)':'var(--text-dim)'} indent/>
+              <LR label="Fixed Overhead"       value={`−${fmt(weeklyFixed,2)}`} color="var(--red)" indent/>
+              <LR label={`  ($${totalMonthlyFixed}/mo × ${periodWeeks.toFixed(1)} wks)`} value="" indent/>
+
+              <LR label="Net Operating Profit" value={fmt(nop,2)} bold border color={nop>=0?'var(--green)':'var(--red)'}/>
+              <LR label="Net Operating Margin" value={fmtP(nopPct)} indent/>
             </div>
           </div>
 
-          {/* Fee detail */}
-          <div className="card">
-            <SectionHead title="Variable Fee Breakdown"/>
-            <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:0}}>
-              {[
-                { l:'3PL Pick Fees',      v:curr.feeBreakdown?.threepl,    note:'$2.50 first + $0.50 add\'l' },
-                { l:'Packaging',          v:curr.feeBreakdown?.packaging,  note:`$0.30 × ${curr.orderCount} orders` },
-                { l:'Shopify Processing', v:curr.feeBreakdown?.processing, note:'2.9% + $0.30/txn' },
-                { l:'Postage (3PL)',       v:curr.postageCost||0,           note:'Carrier rate via Shopify proxy' },
-              ].map(({l,v,note})=>(
-                <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
-                  <div>
-                    <div style={{fontSize:13}}>{l}</div>
-                    <div style={{fontSize:11,color:'var(--text-dim)'}}>{note}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            {/* Margin bridge */}
+            <div className="card">
+              <SectionHead title="Margin Bridge" sub="Gross → Net erosion"/>
+              <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:8}}>
+                {[
+                  { label:'Gross Margin',   pct: curr.grossMarginPct,      color:'var(--green)' },
+                  { label:'After Fees',     pct: curr.netRevenue>0?((curr.grossProfit-(curr.totalFees||0)-(curr.postageCost||0))/curr.netRevenue)*100:0, color:'var(--yellow)' },
+                  { label:'After Ad Spend', pct: curr.netRevenue>0?((curr.grossProfit-(curr.totalFees||0)-(curr.postageCost||0)-ad)/curr.netRevenue)*100:0, color:'var(--orange)' },
+                  { label:'Net Op. Margin', pct: nopPct, color: nopPct>=0?'var(--green)':'var(--red)' },
+                ].map(({label,pct,color})=>(
+                  <div key={label}>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                      <span style={{color:'var(--text-dim)'}}>{label}</span>
+                      <span style={{color,fontWeight:700}}>{fmtP(pct)}</span>
+                    </div>
+                    <div style={{height:8,background:'var(--card-bg2)',borderRadius:4,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${clamp(pct,0,100)}%`,background:color,borderRadius:4,transition:'width 0.5s'}}/>
+                    </div>
                   </div>
-                  <div style={{fontSize:14,fontWeight:600,color:'var(--red)'}}>{v!=null&&v>0?`−${fmt(v,2)}`:'—'}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Fee detail */}
+            <div className="card">
+              <SectionHead title="Variable Fee Breakdown"/>
+              <div style={{marginTop:12}}>
+                {[
+                  { l:'3PL Pick Fees',      v:curr.feeBreakdown?.threepl,    note:'$2.50 first + $0.50 add\'l' },
+                  { l:'Packaging',          v:curr.feeBreakdown?.packaging,  note:`$0.30 × ${curr.orderCount} orders` },
+                  { l:'Shopify Processing', v:curr.feeBreakdown?.processing, note:'2.9% + $0.30/txn' },
+                  { l:'Postage (3PL)',       v:curr.postageCost||0,           note:'Carrier rate via Shopify proxy' },
+                ].map(({l,v,note})=>(
+                  <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                    <div>
+                      <div style={{fontSize:13}}>{l}</div>
+                      <div style={{fontSize:11,color:'var(--text-dim)'}}>{note}</div>
+                    </div>
+                    <div style={{fontSize:14,fontWeight:600,color:'var(--red)'}}>{v!=null&&v>0?`−${fmt(v,2)}`:'—'}</div>
+                  </div>
+                ))}
+                <div style={{marginTop:10,padding:'10px',background:'var(--card-bg2)',borderRadius:6}}>
+                  <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:6,textTransform:'uppercase',letterSpacing:0.6}}>Shipping P&amp;L</div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                    <span style={{color:'var(--text-dim)'}}>Collected from customers</span>
+                    <span style={{color:'var(--green)',fontWeight:600}}>+{fmt(curr.shippingCollected,2)}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:6}}>
+                    <span style={{color:'var(--text-dim)'}}>Actual postage paid</span>
+                    <span style={{color:'var(--red)',fontWeight:600}}>−{fmt(curr.postageCost,2)}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:13,fontWeight:700,borderTop:'1px solid var(--border)',paddingTop:6}}>
+                    <span>Shipping Margin</span>
+                    <span style={{color:(curr.shippingMargin||0)>=0?'var(--green)':'var(--red)'}}>
+                      {(curr.shippingMargin||0)>=0?'+':''}{fmt(curr.shippingMargin,2)}
+                    </span>
+                  </div>
                 </div>
-              ))}
-              {/* Shipping P&L */}
-              <div style={{marginTop:10,padding:'10px',background:'var(--card-bg2)',borderRadius:6}}>
-                <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:6,textTransform:'uppercase',letterSpacing:0.6}}>Shipping P&amp;L</div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
-                  <span style={{color:'var(--text-dim)'}}>Collected from customers</span>
-                  <span style={{color:'var(--green)',fontWeight:600}}>+{fmt(curr.shippingCollected,2)}</span>
+              </div>
+            </div>
+
+            {/* Fixed overhead */}
+            <div className="card">
+              <SectionHead title="Fixed Overhead" sub={`$${totalMonthlyFixed}/mo · ${fmt(weeklyFixed,2)}/wk`}/>
+              <div style={{marginTop:10}}>
+                {[
+                  {l:'Shopify Subscription', v:29,   note:'Basic, billed annually'},
+                  {l:'3PL Account Mgmt',      v:100,  note:'$25/wk'},
+                  {l:'3PL Storage',           v:79,   note:'$19.25/wk'},
+                  {l:'Marketing Agency',      v:1250, note:'Monthly retainer'},
+                ].map(({l,v,note})=>(
+                  <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
+                    <div>
+                      <div style={{fontSize:13}}>{l}</div>
+                      <div style={{fontSize:11,color:'var(--text-dim)'}}>{note}</div>
+                    </div>
+                    <span style={{fontSize:13,color:'var(--red)',fontWeight:500}}>−${v}/mo</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BALANCE SHEET ── */}
+      {fsTab==='balance' && (
+        <div className="grid-2">
+          {/* Assets */}
+          <div className="card">
+            <SectionHead title="Balance Sheet" sub={`As of today · ${rangeLabel}`}/>
+            <div style={{marginTop:12}}>
+              <LR section label="Assets"/>
+              <LR label="Cash — Checking"     value={cashData?fmt(cashData.checking,2):'—'} color="var(--green)" indent/>
+              <LR label="Cash — Savings"      value={cashData&&cashData.savings>0?fmt(cashData.savings,2):'$0.00'} color="var(--green)" indent/>
+              <LR label="Total Cash &amp; Equivalents" value={fmt(totalCash,2)} bold color={totalCash>0?'var(--green)':'var(--text-dim)'}/>
+
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                <div>
+                  <div style={{fontSize:13,paddingLeft:16}}>Inventory at Cost</div>
+                  <div style={{fontSize:11,color:'var(--text-dim)',paddingLeft:16}}>Enter current on-hand value</div>
                 </div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:6}}>
-                  <span style={{color:'var(--text-dim)'}}>Actual postage paid</span>
-                  <span style={{color:'var(--red)',fontWeight:600}}>−{fmt(curr.postageCost,2)}</span>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{fontSize:12,color:'var(--text-dim)'}}>$</span>
+                  <input type="number" value={invOnHand}
+                    onChange={e=>handleInvSave(e.target.value)}
+                    placeholder="0.00"
+                    style={{width:90,padding:'4px 6px',border:'1px solid var(--border)',borderRadius:5,
+                      fontSize:13,textAlign:'right',background:'var(--bg)',color:'var(--text)'}}/>
                 </div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:13,fontWeight:700,borderTop:'1px solid var(--border)',paddingTop:6}}>
-                  <span>Shipping Margin</span>
-                  <span style={{color:(curr.shippingMargin||0)>=0?'var(--green)':'var(--red)'}}>
-                    {(curr.shippingMargin||0)>=0?'+':''}{fmt(curr.shippingMargin,2)}
+              </div>
+
+              <LR label="Total Current Assets"   value={fmt(totalAssets,2)} bold border color="var(--green)"/>
+
+              <div style={{height:8}}/>
+              <LR label="Total Assets"           value={fmt(totalAssets,2)} bold color="var(--green)"/>
+
+              <div style={{height:16}}/>
+              <LR section label="Liabilities"/>
+              {cashData?.cc1>0 && <LR label={cashData.cc1Label||'Credit Card 1'} value={`−${fmt(cashData.cc1,2)}`} color="var(--red)" indent/>}
+              {cashData?.cc2>0 && <LR label={cashData.cc2Label||'Credit Card 2'} value={`−${fmt(cashData.cc2,2)}`} color="var(--red)" indent/>}
+              {!cashData && <LR label="Credit Cards" value="—" color="var(--text-dim)" indent/>}
+              <LR label="Total Liabilities"      value={`−${fmt(totalLiab,2)}`} bold border color={totalLiab>0?'var(--red)':'var(--text-dim)'}/>
+
+              <div style={{height:16}}/>
+              <LR section label="Equity"/>
+              <LR label="Owner's Equity"         value={fmt(equity,2)} bold color={equity>=0?'var(--green)':'var(--red)'}/>
+              <LR label="(Assets − Liabilities)" value="" indent/>
+            </div>
+
+            {!cashData && (
+              <div style={{marginTop:12,padding:10,background:'#fff8e7',borderRadius:6,border:'1px solid var(--yellow)',fontSize:12,color:'#7a5c00'}}>
+                💡 Enter cash &amp; credit card balances in the <strong>Overview → Cash &amp; Liquidity</strong> section to populate this balance sheet automatically.
+              </div>
+            )}
+          </div>
+
+          {/* Visual summary */}
+          <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            <div className="card">
+              <SectionHead title="Balance Sheet Summary"/>
+              <div style={{marginTop:16,display:'flex',flexDirection:'column',gap:12}}>
+                {[
+                  { label:'Total Assets',     value:totalAssets, color:'var(--green)',  icon:'▲' },
+                  { label:'Total Liabilities',value:totalLiab,   color:'var(--red)',    icon:'▼' },
+                  { label:'Owner\'s Equity',  value:equity,      color:equity>=0?'var(--green)':'var(--red)', icon:'◈' },
+                ].map(({label,value,color,icon})=>(
+                  <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'12px 14px',background:'var(--card-bg2)',borderRadius:8,border:`1px solid var(--border)`}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{color,fontSize:16}}>{icon}</span>
+                      <span style={{fontSize:14,fontWeight:600}}>{label}</span>
+                    </div>
+                    <span style={{fontSize:18,fontWeight:800,color}}>{fmt(value,2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Debt-to-equity */}
+              {totalAssets>0 && (
+                <div style={{marginTop:16,padding:'12px 14px',background:'var(--card-bg2)',borderRadius:8}}>
+                  <div style={{fontSize:11,color:'var(--text-dim)',textTransform:'uppercase',letterSpacing:0.6,marginBottom:8}}>Key Ratios</div>
+                  {[
+                    { label:'Current Ratio',         value: totalLiab>0?(totalAssets/totalLiab).toFixed(2)+'×':'∞', note:'Assets ÷ Liabilities (>1 = healthy)' },
+                    { label:'Debt-to-Equity',         value: equity>0?(totalLiab/equity).toFixed(2):'—',           note:'Liabilities ÷ Equity (<1 = safe)' },
+                    { label:'Inventory % of Assets',  value: totalAssets>0?fmtP((invValue/totalAssets)*100):'—',   note:'How much capital is tied up in inventory' },
+                  ].map(({label,value,note})=>(
+                    <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
+                      <div>
+                        <div style={{fontSize:13}}>{label}</div>
+                        <div style={{fontSize:11,color:'var(--text-dim)'}}>{note}</div>
+                      </div>
+                      <span style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <SectionHead title="Asset Composition"/>
+              {totalAssets>0 ? (
+                <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:8}}>
+                  {[
+                    { label:'Cash & Bank',    value:totalCash,  color:'var(--green)' },
+                    { label:'Inventory',      value:invValue,   color:'var(--yellow)' },
+                  ].filter(i=>i.value>0).map(({label,value,color})=>(
+                    <div key={label}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                        <span style={{color:'var(--text-dim)'}}>{label}</span>
+                        <span style={{color,fontWeight:700}}>{fmt(value,2)} ({fmtP((value/totalAssets)*100)})</span>
+                      </div>
+                      <div style={{height:8,background:'var(--card-bg2)',borderRadius:4,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${clamp((value/totalAssets)*100,0,100)}%`,background:color,borderRadius:4,transition:'width 0.5s'}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{marginTop:12,fontSize:13,color:'var(--text-dim)'}}>Enter balances above to see composition.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CASH FLOW STATEMENT ── */}
+      {fsTab==='cashflow' && (
+        <div className="grid-2">
+          <div className="card">
+            <SectionHead title={`Cash Flow Statement — ${rangeLabel}`} sub="Direct method"/>
+            <div style={{marginTop:12}}>
+
+              <LR section label="Operating Activities"/>
+              <LR label="Revenue Collected"       value={`+${fmt(curr.netRevenue,2)}`}          color="var(--green)" indent/>
+              <LR label="3PL Pick Fees Paid"       value={`−${fmt(curr.feeBreakdown?.threepl||0,2)}`}    color="var(--red)" indent/>
+              <LR label="Packaging Paid"           value={`−${fmt(curr.feeBreakdown?.packaging||0,2)}`}  color="var(--red)" indent/>
+              <LR label="Shopify Processing Paid"  value={`−${fmt(curr.feeBreakdown?.processing||0,2)}`} color="var(--red)" indent/>
+              <LR label="Postage Paid"             value={curr.postageCost>0?`−${fmt(curr.postageCost,2)}`:'—'} color={curr.postageCost>0?'var(--red)':'var(--text-dim)'} indent/>
+              <LR label="Ad Spend Paid (Meta)"     value={ad>0?`−${fmt(ad,2)}`:'—'}              color={ad>0?'var(--red)':'var(--text-dim)'} indent/>
+              <LR label="Fixed Overhead Paid"      value={`−${fmt(weeklyFixed,2)}`}              color="var(--red)" indent/>
+              <LR label="Cash from Operations"     value={fmt(cashFromOps,2)} bold border color={cashFromOps>=0?'var(--green)':'var(--red)'}/>
+
+              <div style={{height:12}}/>
+              <LR section label="Investing Activities"/>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                <div style={{paddingLeft:16}}>
+                  <div style={{fontSize:13}}>Inventory Purchased</div>
+                  <div style={{fontSize:11,color:'var(--text-dim)'}}>Cash paid for new product stock</div>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{fontSize:12,color:'var(--text-dim)'}}>$</span>
+                  <input type="number"
+                    defaultValue={invSpendCF||''}
+                    onBlur={e=>{ const v=parseFloat(e.target.value)||0; saveCF({invPurchased:v}) }}
+                    placeholder="0.00"
+                    style={{width:90,padding:'4px 6px',border:'1px solid var(--border)',borderRadius:5,
+                      fontSize:13,textAlign:'right',background:'var(--bg)',color:'var(--text)'}}/>
+                </div>
+              </div>
+              <LR label="Cash from Investing"      value={cashFromInv!==0?`−${fmt(invSpendCF,2)}`:'$0.00'} bold border color={cashFromInv<=0&&invSpendCF>0?'var(--red)':'var(--text-dim)'}/>
+
+              <div style={{height:12}}/>
+              <LR section label="Financing Activities"/>
+              <LR label="Owner Contributions / Draws" value="—" color="var(--text-dim)" indent/>
+              <LR label="Loans / Credit Usage"        value="—" color="var(--text-dim)" indent/>
+              <LR label="Cash from Financing"      value="$0.00" bold border color="var(--text-dim)"/>
+
+              <div style={{height:8}}/>
+              <LR label="Net Change in Cash"       value={(netCashFlow>=0?'+':'')+fmt(netCashFlow,2)} bold color={netCashFlow>=0?'var(--green)':'var(--red)'}/>
+              <LR label="Beginning Cash Balance"   value={totalCash>0?fmt(totalCash,2):'Enter in Overview'} indent color={totalCash>0?'var(--text)':'var(--text-dim)'}/>
+              <LR label="Ending Cash Balance (Est.)" value={totalCash>0?fmt(totalCash+netCashFlow,2):'—'} bold color={totalCash>0?(totalCash+netCashFlow>=0?'var(--green)':'var(--red)'):'var(--text-dim)'}/>
+            </div>
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            {/* Cash flow waterfall */}
+            <div className="card">
+              <SectionHead title="Cash Flow Breakdown" sub="Operating inflows vs outflows"/>
+              <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:8}}>
+                {[
+                  { label:'Revenue',          value: curr.netRevenue,                                         isAdd:true },
+                  { label:'Fulfillment Fees', value: -((curr.totalFees||0)+(curr.postageCost||0)),            isAdd:false },
+                  { label:'Ad Spend',         value: -ad,                                                     isAdd:false },
+                  { label:'Fixed Overhead',   value: -weeklyFixed,                                            isAdd:false },
+                  { label:'Inventory Bought', value: -invSpendCF,                                             isAdd:false },
+                ].filter(i=>i.value!==0).map(({label,value,isAdd})=>{
+                  const abs = Math.abs(value)
+                  const pct = curr.netRevenue>0 ? clamp((abs/curr.netRevenue)*100,0,100) : 0
+                  return (
+                    <div key={label}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                        <span style={{color:'var(--text-dim)'}}>{label}</span>
+                        <span style={{fontWeight:700,color:isAdd?'var(--green)':'var(--red)'}}>
+                          {isAdd?'+':'−'}{fmt(abs,2)}
+                        </span>
+                      </div>
+                      <div style={{height:7,background:'var(--card-bg2)',borderRadius:4,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${pct}%`,background:isAdd?'var(--green)':'var(--red)',borderRadius:4,opacity:0.85}}/>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div style={{marginTop:8,paddingTop:10,borderTop:'2px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontWeight:700,fontSize:14}}>Net Cash Flow</span>
+                  <span style={{fontWeight:800,fontSize:18,color:netCashFlow>=0?'var(--green)':'var(--red)'}}>
+                    {netCashFlow>=0?'+':''}{fmt(netCashFlow,2)}
                   </span>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Fixed overhead */}
-          <div className="card">
-            <SectionHead title="Fixed Overhead" sub={`$${totalMonthlyFixed}/mo · ${fmt(weeklyFixed,2)}/wk`}/>
-            <div style={{marginTop:10}}>
-              {[
-                {l:'Shopify Subscription',   v:29,   note:'Basic, billed annually'},
-                {l:'3PL Account Mgmt',        v:100,  note:'$25/wk'},
-                {l:'3PL Storage',             v:79,   note:'$19.25/wk'},
-                {l:'Marketing Agency',        v:1250, note:'Monthly retainer'},
-              ].map(({l,v,note})=>(
-                <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
-                  <div>
-                    <div style={{fontSize:13}}>{l}</div>
-                    <div style={{fontSize:11,color:'var(--text-dim)'}}>{note}</div>
+            {/* Operating metrics */}
+            <div className="card">
+              <SectionHead title="Cash Efficiency Metrics"/>
+              <div style={{marginTop:10}}>
+                {[
+                  { l:'Operating Cash Margin',   v: curr.netRevenue>0?fmtP((cashFromOps/curr.netRevenue)*100):'—',   note:'Cash from ops ÷ revenue' },
+                  { l:'Revenue per $ Overhead',  v: weeklyFixed>0?`${(curr.netRevenue/weeklyFixed).toFixed(2)}×`:'—', note:'How many $ earned per $ of fixed cost' },
+                  { l:'Fee Burn Rate',           v: curr.orderCount>0?fmt(((curr.totalFees||0)+(curr.postageCost||0))/curr.orderCount,2):'—', note:'Variable fees per order' },
+                  { l:'Ad Spend % of Revenue',   v: curr.netRevenue>0&&ad>0?fmtP((ad/curr.netRevenue)*100):'—',       note:'Meta spend relative to revenue' },
+                ].map(({l,v,note})=>(
+                  <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                    <div>
+                      <div style={{fontSize:13}}>{l}</div>
+                      <div style={{fontSize:11,color:'var(--text-dim)'}}>{note}</div>
+                    </div>
+                    <span style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>{v}</span>
                   </div>
-                  <span style={{fontSize:13,color:'var(--red)',fontWeight:500}}>−${v}/mo</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Daily chart */}
-      {curr.dailyRevenue?.length>1 && (
-        <div className="card">
-          <SectionHead title="Daily Revenue Trend"/>
-          <DailyBars data={curr.dailyRevenue} height={120}/>
+            {/* Daily trend */}
+            {curr.dailyRevenue?.length>1 && (
+              <div className="card">
+                <SectionHead title="Daily Revenue Trend"/>
+                <DailyBars data={curr.dailyRevenue} height={110}/>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
