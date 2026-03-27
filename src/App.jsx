@@ -234,19 +234,25 @@ function Waterfall({ items }) {
   return (
     <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
       {items.map((item,i)=>{
-        const isTotal = item.type==='total'
-        const isAdd   = item.type==='add'
-        const color   = isTotal ? 'var(--purple)' : isAdd ? 'var(--green)' : 'var(--red)'
-        const pct     = clamp((Math.abs(item.value)/maxAbs)*100,1,100)
+        const isTotal   = item.type==='total'
+        const isAdd     = item.type==='add'
+        const isNeg     = item.value < 0
+        // Total row: green if profit, red if loss. Others: green=add, red=sub
+        const color = isTotal
+          ? (isNeg ? 'var(--red)' : 'var(--green)')
+          : isAdd ? 'var(--green)' : 'var(--red)'
+        const pct = clamp((Math.abs(item.value)/maxAbs)*100,1,100)
+        // Display: total shows actual signed value; sub rows show the amount being subtracted
+        const display = isTotal
+          ? fmt(item.value, 2)                   // signed — shows negative if loss
+          : (isAdd ? '+' : '−') + fmt(Math.abs(item.value), 2)
         return (
-          <div key={i} style={{display:'grid',gridTemplateColumns:'minmax(100px,160px) 1fr minmax(60px,80px)',alignItems:'center',gap:8}}>
+          <div key={i} style={{display:'grid',gridTemplateColumns:'minmax(110px,160px) 1fr minmax(70px,90px)',alignItems:'center',gap:8}}>
             <span style={{fontSize:12,color:isTotal?'var(--text)':'var(--text-dim)',fontWeight:isTotal?700:400,textAlign:'right'}}>{item.label}</span>
             <div style={{height:isTotal?10:7,background:'var(--card-bg2)',borderRadius:4,overflow:'hidden'}}>
               <div style={{height:'100%',width:`${pct}%`,background:color,borderRadius:4,transition:'width 0.5s ease'}}/>
             </div>
-            <span style={{fontSize:12,fontWeight:isTotal?700:500,color,textAlign:'right'}}>
-              {isAdd?'+':item.type==='sub'?'−':''}{fmt(Math.abs(item.value),2)}
-            </span>
+            <span style={{fontSize:12,fontWeight:isTotal?700:500,color,textAlign:'right'}}>{display}</span>
           </div>
         )
       })}
@@ -521,10 +527,10 @@ function CashLiquidity({ weeklyBurn }) {
 }
 
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
-function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, shopifyData }) {
+function OverviewTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMonthlyFixed, shopifyData }) {
   if (!curr) return null
   const ad  = metaData?.spend||0
-  const nop = curr.netProfit - ad - weeklyFixed   // net operating profit
+  const nop = curr.netProfit - ad - periodFixed   // net operating profit (uses period-scaled fixed costs)
 
   // Cost composition for donut
   const donutSlices = [
@@ -532,17 +538,18 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, sho
     { label:'Fees',       value: curr.totalFees||0,        color:'#e89a2a' },
     { label:'Postage',    value: curr.postageCost||0,       color:'#d4784a' },
     { label:'Ad Spend',   value: ad,                       color:'#7b68ce' },
-    { label:'Overhead',   value: weeklyFixed,              color:'#4a8fb5' },
+    { label:'Overhead',   value: periodFixed,              color:'#4a8fb5' },
     { label:'Net Profit', value: Math.max(nop,0),          color:'#1e9e5e' },
   ].filter(s=>s.value>0)
 
   const profitWaterfall = [
-    { label:'Net Revenue',   value: curr.netRevenue,                    type:'add'   },
-    { label:'COGS',          value: curr.totalCOGS,                     type:'sub'   },
-    { label:'Order Fees',    value: (curr.totalFees||0)+(curr.postageCost||0), type:'sub' },
-    { label:'Ad Spend',      value: ad,                                 type:'sub'   },
-    { label:'Fixed Overhead',value: weeklyFixed,                        type:'sub'   },
-    { label:'Net Operating', value: Math.abs(nop),                      type:'total' },
+    { label:'Net Revenue',    value: curr.netRevenue,          type:'add'   },
+    { label:'COGS',           value: curr.totalCOGS,           type:'sub'   },
+    { label:'Fulfillment Fees',value: curr.totalFees||0,       type:'sub'   },
+    { label:'Postage',        value: curr.postageCost||0,      type:'sub'   },
+    { label:'Ad Spend',       value: ad,                       type:'sub'   },
+    { label:'Fixed Overhead', value: periodFixed,              type:'sub'   },
+    { label:'Net Operating',  value: nop,                      type:'total' },
   ]
 
   return (
@@ -721,11 +728,13 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, sho
 }
 
 // ─── P&L TAB ──────────────────────────────────────────────────────────────────
-function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel }) {
+function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel, periodDays }) {
   if (!curr) return null
   const ad  = metaData?.spend||0
+  // weeklyFixed here is already period-scaled (periodFixed passed as weeklyFixed from parent)
   const nop = curr.netProfit - ad - weeklyFixed
   const nopPct = curr.netRevenue>0 ? (nop/curr.netRevenue)*100 : 0
+  const periodWeeks = (periodDays||7) / 7
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
@@ -774,7 +783,7 @@ function PnLTab({ curr, metaData, weeklyFixed, totalMonthlyFixed, rangeLabel }) 
             <LR section label="Fixed &amp; Marketing Expenses"/>
             <LR label="Ad Spend (Meta)"      value={ad>0?`−${fmt(ad,2)}`:'—'} color={ad>0?'var(--red)':'var(--text-dim)'} indent/>
             <LR label="Fixed Overhead"       value={`−${fmt(weeklyFixed,2)}`} color="var(--red)" indent/>
-            <LR label={`  (${fmt(totalMonthlyFixed)}/mo ÷ 4.33 wks)`} value="" indent/>
+            <LR label={`  ($${totalMonthlyFixed}/mo × ${periodWeeks.toFixed(1)} wks)`} value="" indent/>
 
             <LR label="Net Operating Profit" value={fmt(nop,2)} bold border color={nop>=0?'var(--green)':'var(--red)'}/>
             <LR label="Net Operating Margin" value={fmtP(nopPct)} indent/>
@@ -1341,21 +1350,26 @@ function ClaudeQA({ financialData }) {
 }
 
 // ─── INSIGHTS TAB ─────────────────────────────────────────────────────────────
-function InsightsTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed }) {
+function InsightsTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMonthlyFixed }) {
   if (!curr) return null
   const ad  = metaData?.spend || 0
-  const nop = curr.netProfit - ad - weeklyFixed
+  const nop = curr.netProfit - ad - periodFixed
   const nopPct = curr.netRevenue > 0 ? (nop / curr.netRevenue) * 100 : 0
   const grossMarginPct = curr.grossMarginPct || 0
 
-  // ── Break-even analysis ──────────────────────────────────────────────────────
+  // ── Break-even analysis (always weekly for forward-looking projection) ───────
   const varCostRatio = curr.netRevenue > 0
     ? ((curr.totalCOGS + (curr.totalFees||0) + (curr.postageCost||0)) / curr.netRevenue)
     : 0.6
   const breakevenRevenue = varCostRatio < 1 ? weeklyFixed / (1 - varCostRatio) : 0
   const breakevenOrders  = curr.aov > 0 ? Math.ceil(breakevenRevenue / curr.aov) : 0
-  const revenueProgress  = breakevenRevenue > 0 ? Math.min((curr.netRevenue / breakevenRevenue) * 100, 150) : 100
-  const isPastBreakeven  = curr.netRevenue >= breakevenRevenue
+  // Normalize period revenue to weekly rate for apples-to-apples comparison
+  const periodDaysInsights = curr.range?.start && curr.range?.end
+    ? Math.max(1, Math.round((new Date(curr.range.end) - new Date(curr.range.start)) / 86400000))
+    : 7
+  const weeklyRevRate    = curr.netRevenue / (periodDaysInsights / 7)
+  const revenueProgress  = breakevenRevenue > 0 ? Math.min((weeklyRevRate / breakevenRevenue) * 100, 150) : 100
+  const isPastBreakeven  = weeklyRevRate >= breakevenRevenue
 
   // ── LTV / CAC estimates ──────────────────────────────────────────────────────
   const avgOrdersPerYear = 1.8
@@ -1458,7 +1472,7 @@ function InsightsTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed }) {
                 {l:'Fixed / Week',        v:fmt(weeklyFixed,2),          note:`$${totalMonthlyFixed}/mo`},
                 {l:'Variable Cost %',     v:fmtP(varCostRatio*100),      note:'COGS + fees + postage'},
                 {l:'Contribution Margin', v:fmtP((1-varCostRatio)*100),  note:'Per $ of revenue'},
-                {l:'Current Revenue',     v:fmt(curr.netRevenue,2),       note:isPastBreakeven?'✓ Above B/E':'✗ Below B/E'},
+                {l:'Weekly Rev Rate',     v:fmt(weeklyRevRate,2),         note:isPastBreakeven?'✓ Above B/E':'✗ Below B/E'},
               ].map(({l,v,note})=>(
                 <div key={l} style={{background:'var(--bg)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--border)'}}>
                   <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.6,marginBottom:2}}>{l}</div>
@@ -1614,8 +1628,14 @@ export default function App() {
   const prev  = shopify?.prior
   const isMock = curr?.isMock || meta?.isMock
   const totalMonthlyFixed = Object.values(MONTHLY_FIXED).reduce((s,v)=>s+v,0)
-  const weeklyFixed = totalMonthlyFixed / 4.33
+  const weeklyFixed = totalMonthlyFixed / 4.33   // always one week — used for burn rate baseline
   const rangeLabel = curr?.range?.label || 'This Period'
+
+  // Period-scaled fixed costs — what overhead actually covers THIS date range
+  const periodDaysTop = curr?.range?.start && curr?.range?.end
+    ? Math.max(1, Math.round((new Date(curr.range.end) - new Date(curr.range.start)) / 86400000))
+    : 7
+  const periodFixed = weeklyFixed * (periodDaysTop / 7)  // e.g. 30-day range = ~4.3 weeks of overhead
 
   return (
     <div className="app">
@@ -1695,12 +1715,12 @@ export default function App() {
       {/* ── Content ── */}
       {curr && (
         <main className="main">
-          {tab==='overview'  && <OverviewTab  curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed} shopifyData={shopify}/>}
-          {tab==='pnl'       && <PnLTab       curr={curr} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed} rangeLabel={rangeLabel}/>}
+          {tab==='overview'  && <OverviewTab  curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} periodFixed={periodFixed} totalMonthlyFixed={totalMonthlyFixed} shopifyData={shopify}/>}
+          {tab==='pnl'       && <PnLTab       curr={curr} metaData={meta} weeklyFixed={periodFixed}  totalMonthlyFixed={totalMonthlyFixed} rangeLabel={rangeLabel} periodDays={periodDaysTop}/>}
           {tab==='orders'    && <OrdersTab    enrichedOrders={curr.enrichedOrders}/>}
           {tab==='products'  && <ProductsTab  skuBreakdown={curr.skuBreakdown}/>}
           {tab==='ads'       && <AdsTab       metaData={meta} curr={curr}/>}
-          {tab==='insights'  && <InsightsTab  curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} totalMonthlyFixed={totalMonthlyFixed}/>}
+          {tab==='insights'  && <InsightsTab  curr={curr} prev={prev} metaData={meta} weeklyFixed={weeklyFixed} periodFixed={periodFixed} totalMonthlyFixed={totalMonthlyFixed}/>}
         </main>
       )}
 
