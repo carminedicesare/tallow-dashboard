@@ -895,7 +895,7 @@ function ProductsTab({ skuBreakdown }) {
           <SectionHead title="Full SKU P&L Matrix"/>
           <span style={{fontSize:11,color:'var(--text-dim)'}}>Blended gross margin: {fmtP(blendedGM)}</span>
         </div>
-        <table className="data-table">
+        <div className="table-wrap"><table className="data-table">
           <thead>
             <tr>
               <th>Product</th>
@@ -943,7 +943,7 @@ function ProductsTab({ skuBreakdown }) {
               ))
             ])}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   )
