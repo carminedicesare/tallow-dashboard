@@ -330,6 +330,196 @@ function LR({ label, value, color, bold, border, indent, section }) {
   )
 }
 
+// ─── CASH & LIQUIDITY ─────────────────────────────────────────────────────────
+const CASH_KEY = 'tallow_cash_v1'
+function loadCash() {
+  try { return JSON.parse(localStorage.getItem(CASH_KEY) || 'null') } catch { return null }
+}
+function saveCash(data) {
+  try { localStorage.setItem(CASH_KEY, JSON.stringify({ ...data, updatedAt: new Date().toISOString() })) } catch {}
+}
+
+function CashLiquidity({ weeklyBurn }) {
+  const saved = loadCash()
+  const [editing,    setEditing]    = useState(!saved)
+  const [checking,   setChecking]   = useState(saved?.checking   ?? '')
+  const [savings,    setSavings]    = useState(saved?.savings    ?? '')
+  const [cc1,        setCc1]        = useState(saved?.cc1        ?? '')
+  const [cc1Label,   setCc1Label]   = useState(saved?.cc1Label   ?? 'Chase Sapphire')
+  const [cc2,        setCc2]        = useState(saved?.cc2        ?? '')
+  const [cc2Label,   setCc2Label]   = useState(saved?.cc2Label   ?? 'Chase Ink')
+  const [updatedAt,  setUpdatedAt]  = useState(saved?.updatedAt  ?? null)
+
+  function save() {
+    const data = { checking: +checking||0, savings: +savings||0, cc1: +cc1||0, cc1Label, cc2: +cc2||0, cc2Label }
+    saveCash(data)
+    setUpdatedAt(new Date().toISOString())
+    setEditing(false)
+  }
+
+  const data = editing ? null : {
+    checking: +checking||0, savings: +savings||0, cc1: +cc1||0, cc2: +cc2||0, cc1Label, cc2Label
+  }
+  const totalCash   = data ? data.checking + data.savings : 0
+  const totalCC     = data ? data.cc1 + data.cc2 : 0
+  const netLiquid   = totalCash - totalCC
+  const runwayDays  = weeklyBurn > 0 ? Math.round((totalCash / weeklyBurn) * 7) : null
+  const utilPct     = totalCC > 0 ? Math.min((totalCC / (totalCC * 3)) * 100, 100) : 0 // rough estimate vs 3× balance as limit
+  const lastUpdated = updatedAt ? new Date(updatedAt) : null
+  const hoursAgo    = lastUpdated ? Math.round((Date.now() - lastUpdated) / 3600000) : null
+
+  return (
+    <div className="card">
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
+        <div>
+          <SectionHead title="Cash & Liquidity" sub="Business bank accounts and credit card balances"/>
+          {lastUpdated && !editing && (
+            <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>
+              Updated {hoursAgo === 0 ? 'just now' : hoursAgo === 1 ? '1 hour ago' : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo/24)}d ago`}
+              {hoursAgo > 48 && <span style={{color:'var(--yellow)',marginLeft:6}}>⚠ Consider updating</span>}
+            </div>
+          )}
+        </div>
+        {!editing && (
+          <button className="btn-sm" style={{background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border2)'}} onClick={()=>setEditing(true)}>
+            ✎ Update
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:2}}>Enter your current balances (stays in your browser — never sent anywhere):</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            {/* Checking */}
+            <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:6}}>🏦 Chase Checking</div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{color:'var(--text-dim)',fontWeight:700}}>$</span>
+                <input type="number" value={checking} onChange={e=>setChecking(e.target.value)} placeholder="0.00"
+                  style={{flex:1,background:'transparent',border:'none',outline:'none',fontSize:16,fontWeight:700,color:'var(--text)',fontFamily:'var(--font)'}}/>
+              </div>
+            </div>
+            {/* Savings */}
+            <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:6}}>🏦 Savings / Reserve</div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{color:'var(--text-dim)',fontWeight:700}}>$</span>
+                <input type="number" value={savings} onChange={e=>setSavings(e.target.value)} placeholder="0.00"
+                  style={{flex:1,background:'transparent',border:'none',outline:'none',fontSize:16,fontWeight:700,color:'var(--text)',fontFamily:'var(--font)'}}/>
+              </div>
+            </div>
+            {/* CC1 */}
+            <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:6}}>
+                💳 <input value={cc1Label} onChange={e=>setCc1Label(e.target.value)}
+                  style={{background:'transparent',border:'none',outline:'none',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,fontFamily:'var(--font)',width:120}}/>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{color:'var(--red)',fontWeight:700}}>$</span>
+                <input type="number" value={cc1} onChange={e=>setCc1(e.target.value)} placeholder="0.00"
+                  style={{flex:1,background:'transparent',border:'none',outline:'none',fontSize:16,fontWeight:700,color:'var(--red)',fontFamily:'var(--font)'}}/>
+              </div>
+            </div>
+            {/* CC2 */}
+            <div style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:6}}>
+                💳 <input value={cc2Label} onChange={e=>setCc2Label(e.target.value)}
+                  style={{background:'transparent',border:'none',outline:'none',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,fontFamily:'var(--font)',width:120}}/>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{color:'var(--red)',fontWeight:700}}>$</span>
+                <input type="number" value={cc2} onChange={e=>setCc2(e.target.value)} placeholder="0.00"
+                  style={{flex:1,background:'transparent',border:'none',outline:'none',fontSize:16,fontWeight:700,color:'var(--red)',fontFamily:'var(--font)'}}/>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8,marginTop:4}}>
+            <button className="btn-ask" onClick={save} style={{flex:1}}>Save Balances</button>
+            {saved && <button className="btn-sm" style={{background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border2)'}} onClick={()=>setEditing(false)}>Cancel</button>}
+          </div>
+        </div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          {/* KPI row */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+            {[
+              {l:'Total Cash',      v:fmt(totalCash,0),   c:'var(--green)',   note:'Checking + savings'},
+              {l:'Credit Card Debt',v:fmt(totalCC,0),     c:'var(--red)',     note:`${data.cc1Label}${data.cc2>0?' + '+data.cc2Label:''}`},
+              {l:'Net Liquid',      v:fmt(netLiquid,0),   c:netLiquid>=0?'var(--green)':'var(--red)', note:'Cash minus CC balance'},
+              {l:'Cash Runway',     v:runwayDays!=null?`${runwayDays}d`:'—', c:runwayDays>60?'var(--green)':runwayDays>30?'var(--yellow)':'var(--red)', note:'At current weekly burn'},
+            ].map(({l,v,c,note})=>(
+              <div key={l} style={{background:'var(--bg)',borderRadius:8,padding:'12px 14px',border:'1px solid var(--border)'}}>
+                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:4}}>{l}</div>
+                <div style={{fontSize:20,fontWeight:800,color:c,marginBottom:2}}>{v}</div>
+                <div style={{fontSize:10,color:'var(--text-dim)'}}>{note}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Account breakdown */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            {/* Cash accounts */}
+            <div style={{background:'#f0faf5',border:'1px solid #a8dfc0',borderRadius:8,padding:'12px 14px'}}>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--green)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:8}}>💰 Cash Accounts</div>
+              {[
+                {l:'Chase Checking', v:data.checking},
+                ...(data.savings>0?[{l:'Savings / Reserve', v:data.savings}]:[]),
+              ].map(({l,v})=>(
+                <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid rgba(30,158,94,0.15)',fontSize:13}}>
+                  <span style={{color:'var(--text-dim)'}}>{l}</span>
+                  <span style={{fontWeight:700,color:'var(--green)'}}>{fmt(v,0)}</span>
+                </div>
+              ))}
+              <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0 0',fontSize:13}}>
+                <span style={{fontWeight:700}}>Total Cash</span>
+                <span style={{fontWeight:800,color:'var(--green)'}}>{fmt(totalCash,0)}</span>
+              </div>
+            </div>
+
+            {/* Credit cards */}
+            <div style={{background:'#fff5f5',border:'1px solid #f5b8b8',borderRadius:8,padding:'12px 14px'}}>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--red)',textTransform:'uppercase',letterSpacing:0.8,marginBottom:8}}>💳 Credit Cards</div>
+              {[
+                {l:data.cc1Label, v:data.cc1},
+                ...(data.cc2>0?[{l:data.cc2Label, v:data.cc2}]:[]),
+              ].map(({l,v})=>(
+                <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid rgba(217,69,69,0.15)',fontSize:13}}>
+                  <span style={{color:'var(--text-dim)'}}>{l}</span>
+                  <span style={{fontWeight:700,color:'var(--red)'}}>{fmt(v,0)}</span>
+                </div>
+              ))}
+              <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0 0',fontSize:13}}>
+                <span style={{fontWeight:700}}>Total Owed</span>
+                <span style={{fontWeight:800,color:'var(--red)'}}>{fmt(totalCC,0)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Runway bar */}
+          {runwayDays != null && (
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:5}}>
+                <span style={{color:'var(--text-dim)'}}>Cash runway at current burn ({fmt(weeklyBurn,0)}/wk)</span>
+                <span style={{fontWeight:700,color:runwayDays>60?'var(--green)':runwayDays>30?'var(--yellow)':'var(--red)'}}>{runwayDays} days</span>
+              </div>
+              <div className="breakeven-bar-track">
+                <div className="breakeven-bar-fill" style={{
+                  width:`${Math.min((runwayDays/180)*100,100)}%`,
+                  background: runwayDays > 90 ? 'var(--green)' : runwayDays > 45 ? 'var(--yellow)' : 'var(--red)',
+                }}/>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--text-muted)',marginTop:3}}>
+                <span>0 days</span><span style={{color:'var(--yellow)'}}>30d caution</span><span style={{color:'var(--green)'}}>90d+ healthy</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, shopifyData }) {
   if (!curr) return null
@@ -374,7 +564,10 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, totalMonthlyFixed, sho
         <KCard label="Shipping Margin" value={fmt(curr.shippingMargin,2)} currRaw={curr.shippingMargin} sub={`Collected ${fmt(curr.shippingCollected,2)} · Paid ${fmt(curr.postageCost,2)}`} accent={(curr.shippingMargin||0)>=0?'var(--green)':'var(--red)'} icon="⊞"/>
       </div>
 
-      {/* ── Row 3: Charts ───────────────────────────────────────────── */}
+      {/* ── Row 3: Cash & Liquidity ─────────────────────────────────── */}
+      <CashLiquidity weeklyBurn={curr.totalCOGS + (curr.totalFees||0) + (curr.postageCost||0) + weeklyFixed + (metaData?.spend||0)}/>
+
+      {/* ── Row 4: Charts ───────────────────────────────────────────── */}
       <div className="grid-2-1">
         {/* Revenue by product */}
         <div className="card">
