@@ -144,20 +144,23 @@ function DailyBars({ data, valueKey='revenue', color='var(--purple)', height=100
   if (!data?.length) return null
   const max = Math.max(...data.map(d=>d[valueKey]),1)
   const count = data.length
-  // For many bars, use a scrollable container with fixed bar width
   const useScroll = count > 14
   const barW = useScroll ? Math.max(28, Math.min(44, 400/count)) : null
+  const labelH = 18 // px reserved for date label at bottom
+  const valueH = count <= 14 ? 16 : 0 // px reserved for value label at top
+  const chartH = height - labelH - valueH // actual bar area height in px
+
   return (
     <div style={{overflowX: useScroll ? 'auto' : 'visible', WebkitOverflowScrolling:'touch'}}>
       <div style={{
         display:'flex', alignItems:'flex-end', gap: useScroll ? 3 : 4,
-        height, paddingTop:16,
+        paddingTop: valueH,
         minWidth: useScroll ? count * (barW + 3) : undefined,
       }}>
         {data.map((d,i)=>{
-          const pct = (d[valueKey]/max)*100
+          const pct = (d[valueKey]/max)
+          const barH = Math.max(3, Math.round(pct * chartH))
           const isLast = i === data.length-1
-          // Only show date label every N bars when many bars
           const showLabel = count <= 14 || i % Math.ceil(count/10) === 0 || isLast
           return (
             <div key={i} style={{
@@ -166,15 +169,20 @@ function DailyBars({ data, valueKey='revenue', color='var(--purple)', height=100
               display:'flex', flexDirection:'column', alignItems:'center',
               gap:3, position:'relative',
             }}>
-              {(count <= 14) && <span style={{fontSize:9,color:'var(--text-dim)',position:'absolute',top:-14,whiteSpace:'nowrap'}}>{fmt(d[valueKey],0)}</span>}
+              {count <= 14 && (
+                <span style={{fontSize:9,color:'var(--text-dim)',position:'absolute',top:-(valueH),whiteSpace:'nowrap'}}>
+                  {fmt(d[valueKey],0)}
+                </span>
+              )}
               <div style={{
-                width:'100%', height:`${pct}%`, minHeight:3,
+                width:'100%',
+                height: barH,
                 background: isLast ? 'var(--purple-light)' : color,
                 borderRadius:'2px 2px 0 0',
                 transition:'height 0.4s ease',
                 opacity: isLast ? 1 : 0.75,
               }}/>
-              <span style={{fontSize:8,color:'var(--text-dim)',whiteSpace:'nowrap',opacity:showLabel?1:0}}>
+              <span style={{fontSize:8,color:'var(--text-dim)',whiteSpace:'nowrap',height:labelH,opacity:showLabel?1:0}}>
                 {new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
               </span>
             </div>
