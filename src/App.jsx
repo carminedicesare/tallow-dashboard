@@ -527,30 +527,67 @@ function CashLiquidity({ weeklyBurn }) {
 }
 
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
+const CF_KEY = 'tallow_cashflow_v1'
+function loadCF() { try { return JSON.parse(localStorage.getItem(CF_KEY)||'null') } catch { return null } }
+function saveCF(v) { try { localStorage.setItem(CF_KEY, JSON.stringify(v)) } catch {} }
+
 function OverviewTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMonthlyFixed, shopifyData }) {
   if (!curr) return null
   const ad  = metaData?.spend||0
-  const nop = curr.netProfit - ad - periodFixed   // net operating profit (uses period-scaled fixed costs)
+  const nop = curr.netProfit - ad - periodFixed
+
+  const [view,          setView]         = useState('pnl')   // 'pnl' | 'cashflow'
+  const [invPurchased,  setInvPurchased] = useState(()=>loadCF()?.invPurchased ?? '')
+  const [editingCF,     setEditingCF]    = useState(false)
+  const [invInput,      setInvInput]     = useState('')
+
+  function saveCFData() {
+    const val = parseFloat(invInput) || 0
+    saveCF({ invPurchased: val })
+    setInvPurchased(val)
+    setEditingCF(false)
+  }
+
+  const invSpend = parseFloat(invPurchased) || 0
+
+  // Cash flow view: replace COGS with actual inventory purchased this period
+  // COGS is already-sunk cost; what matters for cash is what you spent on stock NOW
+  const cashFlowBottom = curr.netRevenue - invSpend - (curr.totalFees||0) - (curr.postageCost||0) - ad - periodFixed
+  const cashFlowWaterfall = [
+    { label:'Cash In (Revenue)',   value: curr.netRevenue,         type:'add'   },
+    { label:'Inventory Purchased', value: invSpend,                type:'sub'   },
+    { label:'Fulfillment Fees',    value: curr.totalFees||0,       type:'sub'   },
+    { label:'Postage',             value: curr.postageCost||0,     type:'sub'   },
+    { label:'Ad Spend',            value: ad,                      type:'sub'   },
+    { label:'Fixed Overhead',      value: periodFixed,             type:'sub'   },
+    { label:'Net Cash Flow',       value: cashFlowBottom,          type:'total' },
+  ]
+
+  // P&L waterfall (accrual — COGS matched to sales)
+  const profitWaterfall = [
+    { label:'Net Revenue',     value: curr.netRevenue,      type:'add'   },
+    { label:'COGS',            value: curr.totalCOGS,       type:'sub'   },
+    { label:'Fulfillment Fees',value: curr.totalFees||0,    type:'sub'   },
+    { label:'Postage',         value: curr.postageCost||0,  type:'sub'   },
+    { label:'Ad Spend',        value: ad,                   type:'sub'   },
+    { label:'Fixed Overhead',  value: periodFixed,          type:'sub'   },
+    { label:'Net Operating',   value: nop,                  type:'total' },
+  ]
+
+  const isCF = view === 'cashflow'
+  const activeWaterfall = isCF ? cashFlowWaterfall : profitWaterfall
+  const activeBottom    = isCF ? cashFlowBottom : nop
+  const bottomLabel     = isCF ? 'Net Cash Flow' : 'Net Operating Profit'
 
   // Cost composition for donut
   const donutSlices = [
-    { label:'COGS',       value: curr.totalCOGS,          color:'#e05c5c' },
-    { label:'Fees',       value: curr.totalFees||0,        color:'#e89a2a' },
-    { label:'Postage',    value: curr.postageCost||0,       color:'#d4784a' },
-    { label:'Ad Spend',   value: ad,                       color:'#7b68ce' },
-    { label:'Overhead',   value: periodFixed,              color:'#4a8fb5' },
-    { label:'Net Profit', value: Math.max(nop,0),          color:'#1e9e5e' },
+    { label: isCF ? 'Inventory' : 'COGS', value: isCF ? invSpend : curr.totalCOGS, color:'#e05c5c' },
+    { label:'Fees',       value: curr.totalFees||0,   color:'#e89a2a' },
+    { label:'Postage',    value: curr.postageCost||0,  color:'#d4784a' },
+    { label:'Ad Spend',   value: ad,                  color:'#7b68ce' },
+    { label:'Overhead',   value: periodFixed,         color:'#4a8fb5' },
+    { label: isCF ? 'Net Cash' : 'Net Profit', value: Math.max(activeBottom,0), color:'#1e9e5e' },
   ].filter(s=>s.value>0)
-
-  const profitWaterfall = [
-    { label:'Net Revenue',    value: curr.netRevenue,          type:'add'   },
-    { label:'COGS',           value: curr.totalCOGS,           type:'sub'   },
-    { label:'Fulfillment Fees',value: curr.totalFees||0,       type:'sub'   },
-    { label:'Postage',        value: curr.postageCost||0,      type:'sub'   },
-    { label:'Ad Spend',       value: ad,                       type:'sub'   },
-    { label:'Fixed Overhead', value: periodFixed,              type:'sub'   },
-    { label:'Net Operating',  value: nop,                      type:'total' },
-  ]
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
@@ -559,7 +596,7 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMont
       <div className="kpi-grid-4">
         <KCard label="Net Revenue"    value={fmt(curr.netRevenue,2)}   currRaw={curr.netRevenue}  prevRaw={prev?.netRevenue}  sub={`${fmtN(curr.orderCount)} orders · AOV ${fmt(curr.aov,2)}`}     accent="var(--green)"  icon="$"/>
         <KCard label="Gross Profit"   value={fmt(curr.grossProfit,2)}  currRaw={curr.grossProfit} prevRaw={prev?.grossProfit} sub={`${fmtP(curr.grossMarginPct)} gross margin`}                      accent={curr.grossProfit>=0?'var(--green)':'var(--red)'} icon="◈"/>
-        <KCard label="Net Op. Profit" value={fmt(nop,2)}               currRaw={nop}              prevRaw={prev?prev.netProfit-ad-weeklyFixed:null} sub="After all costs + overhead"              accent={nop>=0?'var(--green)':'var(--red)'} icon="∑"/>
+        <KCard label={isCF ? 'Net Cash Flow' : 'Net Op. Profit'} value={fmt(activeBottom,2)} currRaw={activeBottom} prevRaw={prev?prev.netProfit-ad-weeklyFixed:null} sub={isCF ? 'Cash in minus cash out' : 'After all costs + overhead'} accent={activeBottom>=0?'var(--green)':'var(--red)'} icon="∑"/>
         <KCard label="Orders"         value={fmtN(curr.orderCount)}    currRaw={curr.orderCount}  prevRaw={prev?.orderCount}  sub={`${curr.refunds>0?fmt(curr.refunds,2)+' refunded':'No refunds'}`} accent="var(--purple)" icon="≡"/>
       </div>
 
@@ -567,7 +604,7 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMont
       <div className="kpi-grid-4">
         <KCard label="ROAS"           value={metaData?.roas!=null?`${metaData.roas.toFixed(2)}×`:'—'} sub={ad>0?`Spend ${fmt(ad,2)}`:'Connect Meta Ads'} accent="var(--purple)" icon="◎"/>
         <KCard label="Avg Order Value" value={fmt(curr.aov,2)} currRaw={curr.aov} prevRaw={prev?.aov} sub="Net revenue ÷ orders" icon="⊘"/>
-        <KCard label="Total COGS"     value={fmt(curr.totalCOGS,2)} sub={`${fmtP(curr.netRevenue>0?(curr.totalCOGS/curr.netRevenue)*100:0)} of revenue`} icon="⊡"/>
+        <KCard label="COGS (Accrued)" value={fmt(curr.totalCOGS,2)} sub={`${fmtP(curr.netRevenue>0?(curr.totalCOGS/curr.netRevenue)*100:0)} of revenue · already produced`} icon="⊡"/>
         <KCard label="Shipping Margin" value={fmt(curr.shippingMargin,2)} currRaw={curr.shippingMargin} sub={`Collected ${fmt(curr.shippingCollected,2)} · Paid ${fmt(curr.postageCost,2)}`} accent={(curr.shippingMargin||0)>=0?'var(--green)':'var(--red)'} icon="⊞"/>
       </div>
 
@@ -598,16 +635,66 @@ function OverviewTab({ curr, prev, metaData, weeklyFixed, periodFixed, totalMont
           </div>
         </div>
 
-        {/* Cash waterfall */}
+        {/* Waterfall — P&L or Cash Flow */}
         <div className="card">
-          <SectionHead title="Profit Waterfall" sub="Where every dollar goes"/>
-          <div style={{marginTop:4}}>
-            <div style={{textAlign:'center',marginBottom:8}}>
-              <div style={{fontSize:28,fontWeight:800,color:nop>=0?'var(--green)':'var(--red)'}}>{fmt(nop,2)}</div>
-              <div style={{fontSize:11,color:'var(--text-dim)'}}>Net Operating Profit</div>
+          {/* Toggle */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <SectionHead title={isCF ? 'Cash Flow View' : 'P&L View'} sub={isCF ? 'Actual cash in vs cash out' : 'Accrual — COGS matched to sales'}/>
+            <div style={{display:'flex',background:'var(--bg)',borderRadius:8,padding:3,border:'1px solid var(--border)',gap:2,flexShrink:0}}>
+              {[{id:'pnl',label:'P&L'},{id:'cashflow',label:'Cash Flow'}].map(v=>(
+                <button key={v.id} onClick={()=>setView(v.id)} style={{
+                  padding:'4px 12px',borderRadius:6,border:'none',cursor:'pointer',fontSize:11,fontWeight:600,
+                  background: view===v.id ? 'var(--brand)' : 'transparent',
+                  color: view===v.id ? '#fff' : 'var(--text-dim)',
+                  transition:'all 0.15s',
+                }}>{v.label}</button>
+              ))}
             </div>
-            <Waterfall items={profitWaterfall}/>
           </div>
+
+          {/* Cash flow inventory input */}
+          {isCF && (
+            <div style={{background:'#f0faf5',border:'1px solid #a8dfc0',borderRadius:8,padding:'10px 14px',marginBottom:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--green)'}}>Inventory Purchased This Period</div>
+                  <div style={{fontSize:10,color:'var(--text-dim)',marginTop:1}}>Cash you actually spent restocking — not COGS</div>
+                </div>
+                {!editingCF
+                  ? <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:16,fontWeight:800,color:'var(--text)'}}>{invSpend>0?fmt(invSpend,2):'Not set'}</span>
+                      <button className="btn-sm" style={{background:'white',color:'var(--text)',border:'1px solid var(--border2)'}}
+                        onClick={()=>{setInvInput(invSpend||'');setEditingCF(true)}}>✎</button>
+                    </div>
+                  : <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                      <span style={{color:'var(--text-dim)',fontWeight:700}}>$</span>
+                      <input type="number" value={invInput} onChange={e=>setInvInput(e.target.value)} autoFocus
+                        placeholder="0.00" style={{width:90,background:'white',border:'1px solid var(--border2)',borderRadius:6,padding:'4px 8px',fontSize:13,fontWeight:700,outline:'none'}}/>
+                      <button className="btn-ask" style={{padding:'5px 12px',fontSize:12}} onClick={saveCFData}>Save</button>
+                      <button className="btn-sm" style={{background:'white',color:'var(--text)',border:'1px solid var(--border2)'}} onClick={()=>setEditingCF(false)}>✕</button>
+                    </div>
+                }
+              </div>
+              {invSpend===0 && !editingCF && (
+                <div style={{fontSize:10,color:'var(--text-dim)',marginTop:6}}>
+                  💡 Enter $0 if you bought no inventory this period — cash flow will show your true operating cash movement.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* P&L explainer */}
+          {!isCF && (
+            <div style={{background:'#f0f6ff',border:'1px solid #bad4f5',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:11,color:'#3a6cb5',lineHeight:1.5}}>
+              💡 <strong>P&L view</strong> matches COGS to each sale (accrual accounting). Switch to <strong>Cash Flow</strong> to see actual cash movement — COGS is already spent when you produce inventory.
+            </div>
+          )}
+
+          <div style={{textAlign:'center',marginBottom:8}}>
+            <div style={{fontSize:28,fontWeight:800,color:activeBottom>=0?'var(--green)':'var(--red)'}}>{fmt(activeBottom,2)}</div>
+            <div style={{fontSize:11,color:'var(--text-dim)'}}>{bottomLabel}</div>
+          </div>
+          <Waterfall items={activeWaterfall}/>
         </div>
       </div>
 
